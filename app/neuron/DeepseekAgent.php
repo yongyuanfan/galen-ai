@@ -13,6 +13,19 @@ use NeuronAI\Tools\Toolkits\ToolkitInterface;
 
 class DeepseekAgent extends Agent
 {
+    /**
+     * @param ToolInterface[]|ToolkitInterface[] $customTools
+     * @param array<class-string, mixed> $customMiddleware
+     */
+    public function __construct(
+        protected array $customTools = [],
+        protected ?string $customInstructions = null,
+        protected array $customMiddleware = [],
+        ...$arguments,
+    ) {
+        parent::__construct(...$arguments);
+    }
+
     protected function provider(): AIProviderInterface
     {
         return new Deepseek(
@@ -23,6 +36,10 @@ class DeepseekAgent extends Agent
 
     protected function instructions(): string
     {
+        if ($this->customInstructions !== null) {
+            return $this->customInstructions;
+        }
+
         return (string) new SystemPrompt(
             background: ["You are a friendly AI Agent created with Neuron AI framework."],
         );
@@ -33,7 +50,7 @@ class DeepseekAgent extends Agent
      */
     protected function tools(): array
     {
-        return [];
+        return $this->customTools;
     }
 
     /**
@@ -41,8 +58,6 @@ class DeepseekAgent extends Agent
      */
     protected function middleware(): array
     {
-        return [
-            // ToolNode::class => [],
-        ];
+        return $this->customMiddleware;
     }
 }

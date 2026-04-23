@@ -185,6 +185,22 @@ function resetRenderer() {
 }
 
 function processA2UIMessage(msg) {
+  if (msg.assistantMessageStart) {
+    ensureRoot();
+    appendMessageCard(msg.assistantMessageStart.role || 'Galen AI', '', msg.assistantMessageStart.id);
+    render();
+    return;
+  }
+  if (msg.assistantMessageDelta) {
+    updateAssistantStream(msg.assistantMessageDelta.id, msg.assistantMessageDelta.content || '');
+    renderDataBindings();
+    return;
+  }
+  if (msg.error) {
+    appendMessageCard('error', msg.error.message || 'Unknown error');
+    render();
+    return;
+  }
   if (msg.beginRendering) {
     surfaceId = msg.beginRendering.surfaceId;
     rootId = msg.beginRendering.root;
@@ -222,6 +238,36 @@ function render() {
   }
   container.innerHTML = renderComponent(rootId);
   container.scrollTop = container.scrollHeight;
+}
+
+function ensureRoot() {
+  if (rootId) return;
+  surfaceId = 'chat';
+  rootId = 'root';
+  components[rootId] = { Column: { children: [] } };
+}
+
+function appendMessageCard(role, body, dataKey = '') {
+  ensureRoot();
+  const suffix = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const cardId = `local_card_${suffix}`;
+  const columnId = `local_col_${suffix}`;
+  const captionId = `local_caption_${suffix}`;
+  const bodyId = `local_body_${suffix}`;
+
+  components[rootId].Column.children.push(cardId);
+  components[cardId] = { Card: { children: [columnId] } };
+  components[columnId] = { Column: { children: [captionId, bodyId] } };
+  components[captionId] = { Text: { value: role, usageHint: 'caption' } };
+  components[bodyId] = dataKey ? { Text: { dataKey } } : { Text: { value: body } };
+
+  if (dataKey) {
+    dataModel[dataKey] = body;
+  }
+}
+
+function updateAssistantStream(id, content) {
+  dataModel[id] = content;
 }
 
 function renderComponent(id) {
@@ -293,6 +339,7 @@ function esc(s) {
 // Appends approve/reject buttons below the last card in the chat container.
 function renderApprovalButtons(description) {
   const container = document.getElementById('chat-container');
+  removeApprovalButtons();
   const div = document.createElement('div');
   div.id = 'approval-bar';
   div.style.padding = '10px 20px';
@@ -354,6 +401,11 @@ async function sendApproval(approved) {
           try { processA2UIMessage(JSON.parse(jsonStr)); } catch (_) {}
         }
       }
+    }
+    const tail = buffer.trim();
+    if (tail.startsWith('data:')) {
+      const jsonStr = tail.slice(5).trimStart();
+      try { processA2UIMessage(JSON.parse(jsonStr)); } catch (_) {}
     }
   } catch (err) {
     console.error('Approval error:', err);
@@ -467,6 +519,9 @@ async function sendMessage() {
   sendBtn.disabled = true;
   pendingInterruptId = null;
   removeApprovalButtons();
+  ensureRoot();
+  appendMessageCard('You', message);
+  render();
 
   let buffer = '';
 
@@ -505,6 +560,13 @@ async function sendMessage() {
           } catch (_) { /* skip malformed */ }
         }
       }
+    }
+    const tail = buffer.trim();
+    if (tail.startsWith('data:')) {
+      const jsonStr = tail.slice(5).trimStart();
+      try {
+        processA2UIMessage(JSON.parse(jsonStr));
+      } catch (_) {}
     }
   } catch (err) {
     console.error('Chat error:', err);
