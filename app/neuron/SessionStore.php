@@ -237,7 +237,7 @@ class SessionStore
 
     private function sessionsRoot(): string
     {
-        $directory = runtime_path('galen-ai/sessions');
+        $directory = runtime_path('sessions');
         $this->ensureDirectory($directory);
 
         return $directory;
