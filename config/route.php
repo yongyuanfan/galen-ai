@@ -14,8 +14,4 @@
 
 use Webman\Route;
 
-
-
-
-
-
+Route::disableDefaultRoute();
