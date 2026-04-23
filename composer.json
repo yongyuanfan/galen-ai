@@ -34,7 +34,8 @@
     "symfony/var-dumper": "^8.0",
     "webman/redis": "^2.1",
     "webman/validation": "^2.2",
-    "webman/blade": "^1.5"
+    "webman/blade": "^1.5",
+    "neuron-core/neuron-ai": "^3.3"
   },
   "suggest": {
     "ext-event": "For better performance. "
