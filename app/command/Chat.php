@@ -21,7 +21,7 @@ class Chat extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $message = DeepseekAgent::make()
-            ->chat(new UserMessage("Hi, who are you?"))
+            ->chat(new UserMessage("你好，请问你叫什么名字？"))
             ->getMessage();
 
         echo $message->getContent();
