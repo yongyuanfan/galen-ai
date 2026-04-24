@@ -19,6 +19,8 @@ use const JSON_UNESCAPED_UNICODE;
 
 class SessionChatService
 {
+    private const ASSISTANT_ROLE = 'Galen AI';
+
     public function __construct(
         private SessionStore $store,
         private SessionAgentFactory $factory,
@@ -35,30 +37,12 @@ class SessionChatService
     public function chat(string $sessionId, string $message): string
     {
         $this->store->updateTitleIfNeeded($sessionId, $message);
-
         $agent = $this->factory->make($sessionId);
 
-        try {
-            $agent->chat(new UserMessage($message))->getMessage();
-            $this->store->setPendingInterrupt($sessionId, null);
-        } catch (WorkflowInterrupt $interrupt) {
-            $request = $interrupt->getRequest();
-            $this->store->setPendingInterrupt($sessionId, $request->jsonSerialize());
-
-            return $this->sse([
-                ...$this->renderer->render($this->store->history($sessionId)->getMessages()),
-                [
-                    'interruptRequest' => [
-                        'interruptId' => $sessionId,
-                        'description' => $request->getMessage(),
-                    ],
-                ],
-            ]);
-        }
-
-        $this->store->touch($sessionId);
-
-        return $this->sse($this->renderer->render($this->store->history($sessionId)->getMessages()));
+        return $this->respondToInteraction(
+            $sessionId,
+            static fn () => $agent->chat(new UserMessage($message))->getMessage(),
+        );
     }
 
     /**
@@ -67,101 +51,23 @@ class SessionChatService
     public function streamChat(string $sessionId, string $message): Generator
     {
         $this->store->updateTitleIfNeeded($sessionId, $message);
-
         $agent = $this->factory->make($sessionId);
-        $streamId = 'assistant_' . uniqid();
-        $content = '';
-        $started = false;
 
-        try {
-            foreach ($agent->stream(new UserMessage($message))->events() as $event) {
-                if (!$event instanceof TextChunk) {
-                    continue;
-                }
-
-                if (!$started) {
-                    $started = true;
-                    yield [
-                        'assistantMessageStart' => [
-                            'id' => $streamId,
-                            'role' => 'Galen AI',
-                        ],
-                    ];
-                }
-
-                $content .= $event->content;
-
-                yield [
-                    'assistantMessageDelta' => [
-                        'id' => $streamId,
-                        'content' => $content,
-                    ],
-                ];
-            }
-
-            $this->store->setPendingInterrupt($sessionId, null);
-            $this->store->touch($sessionId);
-
-            foreach ($this->renderer->render($this->store->history($sessionId)->getMessages()) as $message) {
-                yield $message;
-            }
-        } catch (WorkflowInterrupt $interrupt) {
-            $request = $interrupt->getRequest();
-            $this->store->setPendingInterrupt($sessionId, $request->jsonSerialize());
-
-            foreach ($this->renderer->render($this->store->history($sessionId)->getMessages()) as $message) {
-                yield $message;
-            }
-
-            yield [
-                'interruptRequest' => [
-                    'interruptId' => $sessionId,
-                    'description' => $request->getMessage(),
-                ],
-            ];
-        }
+        yield from $this->streamInteraction(
+            $sessionId,
+            static fn () => $agent->stream(new UserMessage($message))->events(),
+        );
     }
 
     public function approve(string $sessionId, bool $approved, string $reason = ''): string
     {
-        $pending = $this->store->getPendingInterrupt($sessionId);
-        if ($pending === null) {
-            throw new \RuntimeException('No pending approval for this session.');
-        }
-
-        $request = ApprovalRequest::fromArray($pending);
-        foreach ($request->getActions() as $action) {
-            if ($approved) {
-                $action->approve($reason !== '' ? $reason : null);
-                continue;
-            }
-
-            $action->reject($reason !== '' ? $reason : 'Rejected by user.');
-        }
-
+        $request = $this->buildApprovalRequest($sessionId, $approved, $reason);
         $agent = $this->factory->make($sessionId);
 
-        try {
-            $agent->chat([], $request)->getMessage();
-            $this->store->setPendingInterrupt($sessionId, null);
-        } catch (WorkflowInterrupt $interrupt) {
-            $next = $interrupt->getRequest();
-            $this->store->setPendingInterrupt($sessionId, $next->jsonSerialize());
-
-            return $this->sse([
-                ...$this->renderer->render($this->store->history($sessionId)->getMessages()),
-                [
-                    'interruptRequest' => [
-                        'interruptId' => $sessionId,
-                        'description' => $next->getMessage(),
-                    ],
-                ],
-            ]);
-        }
-
-        $this->store->touch($sessionId);
-
-        return $this->sse($this->renderer->render($this->store->history($sessionId)->getMessages()));
+        return $this->respondToInteraction(
+            $sessionId,
+            static fn () => $agent->chat([], $request)->getMessage(),
+        );
     }
 
     /**
@@ -169,38 +75,50 @@ class SessionChatService
      */
     public function streamApprove(string $sessionId, bool $approved, string $reason = ''): Generator
     {
-        $pending = $this->store->getPendingInterrupt($sessionId);
-        if ($pending === null) {
-            throw new \RuntimeException('No pending approval for this session.');
-        }
-
-        $request = ApprovalRequest::fromArray($pending);
-        foreach ($request->getActions() as $action) {
-            if ($approved) {
-                $action->approve($reason !== '' ? $reason : null);
-                continue;
-            }
-
-            $action->reject($reason !== '' ? $reason : 'Rejected by user.');
-        }
-
+        $request = $this->buildApprovalRequest($sessionId, $approved, $reason);
         $agent = $this->factory->make($sessionId);
+
+        yield from $this->streamInteraction(
+            $sessionId,
+            static fn () => $agent->stream([], $request)->events(),
+        );
+    }
+
+    private function respondToInteraction(string $sessionId, callable $operation): string
+    {
+        try {
+            $operation();
+            $this->store->setPendingInterrupt($sessionId, null);
+            $this->store->touch($sessionId);
+
+            return $this->sse($this->renderedHistory($sessionId));
+        } catch (WorkflowInterrupt $interrupt) {
+            return $this->sse($this->renderedHistoryWithInterrupt($sessionId, $interrupt->getRequest()));
+        }
+    }
+
+    /**
+     * @return Generator<int, array<string, mixed>>
+     */
+    private function streamInteraction(string $sessionId, callable $streamFactory): Generator
+    {
         $streamId = 'assistant_' . uniqid();
         $content = '';
         $started = false;
 
         try {
-            foreach ($agent->stream([], $request)->events() as $event) {
+            foreach ($streamFactory() as $event) {
                 if (!$event instanceof TextChunk) {
                     continue;
                 }
 
                 if (!$started) {
                     $started = true;
+
                     yield [
                         'assistantMessageStart' => [
                             'id' => $streamId,
-                            'role' => 'Galen AI',
+                            'role' => self::ASSISTANT_ROLE,
                         ],
                     ];
                 }
@@ -218,24 +136,60 @@ class SessionChatService
             $this->store->setPendingInterrupt($sessionId, null);
             $this->store->touch($sessionId);
 
-            foreach ($this->renderer->render($this->store->history($sessionId)->getMessages()) as $message) {
+            foreach ($this->renderedHistory($sessionId) as $message) {
                 yield $message;
             }
         } catch (WorkflowInterrupt $interrupt) {
-            $next = $interrupt->getRequest();
-            $this->store->setPendingInterrupt($sessionId, $next->jsonSerialize());
-
-            foreach ($this->renderer->render($this->store->history($sessionId)->getMessages()) as $message) {
+            foreach ($this->renderedHistoryWithInterrupt($sessionId, $interrupt->getRequest()) as $message) {
                 yield $message;
             }
+        }
+    }
 
-            yield [
+    private function buildApprovalRequest(string $sessionId, bool $approved, string $reason): ApprovalRequest
+    {
+        $pending = $this->store->getPendingInterrupt($sessionId);
+        if ($pending === null) {
+            throw new \RuntimeException('No pending approval for this session.');
+        }
+
+        $request = ApprovalRequest::fromArray($pending);
+        foreach ($request->getActions() as $action) {
+            if ($approved) {
+                $action->approve($reason !== '' ? $reason : null);
+                continue;
+            }
+
+            $action->reject($reason !== '' ? $reason : 'Rejected by user.');
+        }
+
+        return $request;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function renderedHistory(string $sessionId): array
+    {
+        return $this->renderer->render($this->store->history($sessionId)->getMessages());
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function renderedHistoryWithInterrupt(string $sessionId, $request): array
+    {
+        $this->store->setPendingInterrupt($sessionId, $request->jsonSerialize());
+
+        return [
+            ...$this->renderedHistory($sessionId),
+            [
                 'interruptRequest' => [
                     'interruptId' => $sessionId,
-                    'description' => $next->getMessage(),
+                    'description' => $request->getMessage(),
                 ],
-            ];
-        }
+            ],
+        ];
     }
 
     /**

@@ -9,12 +9,10 @@ use NeuronAI\Tools\PropertyType;
 use NeuronAI\Tools\Tool;
 use NeuronAI\Tools\ToolProperty;
 
-use function mb_strlen;
-use function mb_substr;
-use function trim;
-
 class ReadSessionDocumentTool extends Tool
 {
+    private const EXCERPT_LIMIT = 12000;
+
     public function __construct(
         private readonly string $sessionId,
         private readonly DocumentManager $documents,
@@ -44,14 +42,11 @@ class ReadSessionDocumentTool extends Tool
             return 'No document has been uploaded for this session.';
         }
 
-        $content = trim($this->documents->extractText($document['path']));
-        if ($content === '') {
+        $excerpt = $this->documents->extractRelevantExcerpt($this->sessionId, $document, $question, self::EXCERPT_LIMIT);
+        if ($excerpt === '') {
             return 'The uploaded document is empty.';
         }
 
-        $excerpt = mb_substr($content, 0, 12000);
-        $truncated = mb_strlen($content) > mb_strlen($excerpt) ? "\n\n[truncated]" : '';
-
-        return "Document: {$document['name']}\nRequested topic: {$question}\n\n{$excerpt}{$truncated}";
+        return "Document: {$document['name']}\nRequested topic: {$question}\n\n{$excerpt}";
     }
 }

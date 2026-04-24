@@ -77,7 +77,7 @@ class SessionController
 
             return json([
                 'name' => $document['name'],
-                'path' => $document['path'],
+                'path' => $this->documents->resolvePath($id, $document),
             ]);
         } catch (\Throwable $exception) {
             return response(json_encode(['error' => $exception->getMessage()], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 500, ['Content-Type' => 'application/json']);

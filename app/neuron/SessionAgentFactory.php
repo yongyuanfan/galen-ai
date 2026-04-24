@@ -7,6 +7,7 @@ namespace app\neuron;
 use app\neuron\tool\ReadSessionDocumentTool;
 use NeuronAI\Agent\AgentState;
 use NeuronAI\Agent\Middleware\ToolApproval;
+use NeuronAI\Agent\Nodes\ToolNode;
 use NeuronAI\Agent\SystemPrompt;
 
 class SessionAgentFactory
@@ -24,7 +25,7 @@ class SessionAgentFactory
         return DeepseekAgent::make(
             [new ReadSessionDocumentTool($sessionId, $this->documents)],
             $this->instructions($sessionId),
-            [\NeuronAI\Agent\Nodes\ToolNode::class => [new ToolApproval(['read_uploaded_document'])]],
+            [ToolNode::class => [new ToolApproval(['read_uploaded_document'])]],
             $this->store->workflowPersistence($sessionId),
             $this->store->workflowToken($sessionId),
             $state,

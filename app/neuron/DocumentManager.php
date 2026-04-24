@@ -6,28 +6,34 @@ namespace app\neuron;
 
 use Webman\Http\UploadFile;
 
-use function array_map;
-use function file_exists;
 use function file_get_contents;
+use function file_put_contents;
 use function is_file;
 use function json_decode;
 use function json_encode;
+use function mb_strlen;
+use function mb_stripos;
+use function mb_strtolower;
+use function mb_substr;
 use function pathinfo;
+use function preg_split;
 use function preg_replace;
-use function str_ends_with;
 use function strtolower;
 use function time;
 use function uniqid;
 
+use const LOCK_EX;
 use const JSON_PRETTY_PRINT;
 use const JSON_UNESCAPED_SLASHES;
 use const JSON_UNESCAPED_UNICODE;
-use const PATHINFO_BASENAME;
 use const PATHINFO_EXTENSION;
 use const PATHINFO_FILENAME;
 
 class DocumentManager
 {
+    private const EXCERPT_LIMIT = 12000;
+    private const EXCERPT_PADDING = 1500;
+
     public function __construct(private SessionStore $store)
     {
     }
@@ -45,14 +51,14 @@ class DocumentManager
         $extension = strtolower($file->getUploadExtension());
         $basename = preg_replace('/[^A-Za-z0-9._-]/', '_', pathinfo($originalName, PATHINFO_FILENAME)) ?: 'document';
         $storedName = uniqid($basename . '_', true) . ($extension !== '' ? '.' . $extension : '');
-        $path = $this->store->docsDirectory($sessionId) . '/' . $storedName;
+        $path = $this->documentPath($sessionId, $storedName);
 
         $file->move($path);
 
         $record = [
             'id' => uniqid('doc_'),
             'name' => $originalName,
-            'path' => $path,
+            'stored_name' => $storedName,
             'extension' => $extension,
             'uploaded_at' => time(),
         ];
@@ -121,18 +127,106 @@ class DocumentManager
     }
 
     /**
+     * @param array<string, mixed> $document
+     */
+    public function resolvePath(string $sessionId, array $document): string
+    {
+        $storedName = (string) ($document['stored_name'] ?? '');
+        if ($storedName !== '') {
+            return $this->documentPath($sessionId, $storedName);
+        }
+
+        $legacyPath = (string) ($document['path'] ?? '');
+        if ($legacyPath !== '') {
+            return $legacyPath;
+        }
+
+        throw new \RuntimeException('Document path is missing.');
+    }
+
+    /**
+     * @param array<string, mixed> $document
+     */
+    public function extractRelevantExcerpt(string $sessionId, array $document, string $question, int $maxLength = self::EXCERPT_LIMIT): string
+    {
+        $content = trim($this->extractText($this->resolvePath($sessionId, $document)));
+        if ($content === '') {
+            return '';
+        }
+
+        if (mb_strlen($content) <= $maxLength) {
+            return $content;
+        }
+
+        $normalizedQuestion = mb_strtolower(trim($question));
+        $offset = $this->matchOffset($content, $normalizedQuestion);
+        if ($offset === null) {
+            $excerpt = mb_substr($content, 0, $maxLength);
+            return $excerpt . "\n\n[truncated]";
+        }
+
+        $start = max(0, $offset - self::EXCERPT_PADDING);
+        $excerpt = mb_substr($content, $start, $maxLength);
+        $end = $start + mb_strlen($excerpt);
+
+        if ($start > 0) {
+            $excerpt = "[truncated]\n\n" . $excerpt;
+        }
+
+        if ($end < mb_strlen($content)) {
+            $excerpt .= "\n\n[truncated]";
+        }
+
+        return $excerpt;
+    }
+
+    /**
      * @param array<int, array<string, mixed>> $documents
      */
     private function write(string $sessionId, array $documents): void
     {
-        file_put_contents(
-            $this->indexPath($sessionId),
-            json_encode($documents, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT)
-        );
+        $encoded = json_encode($documents, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
+        if ($encoded === false) {
+            throw new \RuntimeException('Unable to encode document metadata.');
+        }
+
+        if (file_put_contents($this->indexPath($sessionId), $encoded, LOCK_EX) === false) {
+            throw new \RuntimeException('Unable to write document metadata.');
+        }
     }
 
     private function indexPath(string $sessionId): string
     {
         return $this->store->sessionDirectory($sessionId) . '/documents.json';
+    }
+
+    private function documentPath(string $sessionId, string $storedName): string
+    {
+        return $this->store->docsDirectory($sessionId) . '/' . $storedName;
+    }
+
+    private function matchOffset(string $content, string $question): ?int
+    {
+        foreach ($this->keywords($question) as $keyword) {
+            $position = mb_stripos($content, $keyword);
+            if ($position !== false) {
+                return $position;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function keywords(string $question): array
+    {
+        $parts = preg_split('/[^\p{L}\p{N}_-]+/u', $question) ?: [];
+
+        return array_values(array_filter(
+            $parts,
+            static fn (string $part): bool => mb_strlen($part) >= 2
+        ));
     }
 }

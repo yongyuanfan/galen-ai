@@ -9,9 +9,6 @@ use NeuronAI\Workflow\Persistence\FilePersistence;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 
-use function array_filter;
-use function array_map;
-use function file_exists;
 use function file_get_contents;
 use function file_put_contents;
 use function glob;
@@ -20,29 +17,33 @@ use function is_file;
 use function json_decode;
 use function json_encode;
 use function mkdir;
-use function pathinfo;
+use function random_bytes;
+use function rmdir;
 use function time;
 use function trim;
-use function uksort;
-use function uniqid;
 use function unlink;
 
+use const LOCK_EX;
 use const JSON_PRETTY_PRINT;
 use const JSON_UNESCAPED_SLASHES;
 use const JSON_UNESCAPED_UNICODE;
-use const PATHINFO_FILENAME;
-use const SORT_DESC;
 
 class SessionStore
 {
+    private const DEFAULT_TITLE = 'New Session';
+    private const TITLE_LIMIT = 40;
+    private const HISTORY_LIMIT = 50000;
+    private const WORKFLOW_TOKEN = 'session_workflow';
+
     public function create(): array
     {
-        $id = uniqid('sess_');
+        $id = 'sess_' . bin2hex(random_bytes(16));
+        $now = time();
         $meta = [
             'id' => $id,
-            'title' => 'New Session',
-            'created_at' => time(),
-            'updated_at' => time(),
+            'title' => self::DEFAULT_TITLE,
+            'created_at' => $now,
+            'updated_at' => $now,
             'pending_interrupt' => null,
         ];
 
@@ -125,11 +126,11 @@ class SessionStore
         }
 
         $meta = $this->require($sessionId);
-        if (($meta['title'] ?? '') !== 'New Session') {
+        if (($meta['title'] ?? '') !== self::DEFAULT_TITLE) {
             return;
         }
 
-        $meta['title'] = mb_substr($candidate, 0, 40);
+        $meta['title'] = mb_substr($candidate, 0, self::TITLE_LIMIT);
         $meta['updated_at'] = time();
         $this->writeMeta($sessionId, $meta);
     }
@@ -153,7 +154,7 @@ class SessionStore
 
     public function history(string $sessionId): FileChatHistory
     {
-        return new FileChatHistory($this->sessionDirectory($sessionId), 'history', 50000, '', '.chat');
+        return new FileChatHistory($this->sessionDirectory($sessionId), 'history', self::HISTORY_LIMIT, '', '.chat');
     }
 
     public function workflowPersistence(string $sessionId): FilePersistence
@@ -166,7 +167,7 @@ class SessionStore
 
     public function workflowToken(string $sessionId): string
     {
-        return 'session_workflow';
+        return self::WORKFLOW_TOKEN;
     }
 
     public function sessionDirectory(string $sessionId): string
@@ -202,10 +203,7 @@ class SessionStore
     private function writeMeta(string $sessionId, array $meta): void
     {
         $this->ensureSessionDirectory($sessionId);
-        file_put_contents(
-            $this->metaPath($sessionId),
-            json_encode($meta, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT)
-        );
+        $this->writeJsonFile($this->metaPath($sessionId), $meta);
     }
 
     /**
@@ -249,6 +247,23 @@ class SessionStore
             return;
         }
 
-        mkdir($directory, 0775, true);
+        if (!mkdir($directory, 0775, true) && !is_dir($directory)) {
+            throw new \RuntimeException('Unable to create directory: ' . $directory);
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function writeJsonFile(string $path, array $payload): void
+    {
+        $encoded = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
+        if ($encoded === false) {
+            throw new \RuntimeException('Unable to encode session metadata.');
+        }
+
+        if (file_put_contents($path, $encoded, LOCK_EX) === false) {
+            throw new \RuntimeException('Unable to write file: ' . $path);
+        }
     }
 }
