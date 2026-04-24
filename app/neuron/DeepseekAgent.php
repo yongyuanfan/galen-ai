@@ -28,6 +28,7 @@ class DeepseekAgent extends Agent
 
     protected function provider(): AIProviderInterface
     {
+        // 模型配置留在配置文件里，session 层只负责编排。
         return new Deepseek(
             key: config('neuron.agent.deepseek.key'),
             model: config('neuron.agent.deepseek.model'),
@@ -54,7 +55,7 @@ class DeepseekAgent extends Agent
     }
 
     /**
-     * Attach middleware to nodes.
+     * @return array<class-string, mixed>
      */
     protected function middleware(): array
     {

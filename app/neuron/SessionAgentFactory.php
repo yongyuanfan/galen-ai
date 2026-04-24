@@ -20,11 +20,13 @@ class SessionAgentFactory
 
     public function make(string $sessionId): DeepseekAgent
     {
+        // 为当前请求恢复历史消息，让同一 session 能持续对话。
         $state = (new AgentState())->setChatHistory($this->store->history($sessionId));
 
         return DeepseekAgent::make(
             [new ReadSessionDocumentTool($sessionId, $this->documents)],
             $this->instructions($sessionId),
+            // 当前流程里只有读取已上传文档需要显式审批。
             [ToolNode::class => [new ToolApproval(['read_uploaded_document'])]],
             $this->store->workflowPersistence($sessionId),
             $this->store->workflowToken($sessionId),

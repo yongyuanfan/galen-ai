@@ -17,11 +17,18 @@ use const JSON_PRETTY_PRINT;
 use const JSON_UNESCAPED_SLASHES;
 use const JSON_UNESCAPED_UNICODE;
 
+/**
+ * @phpstan-type UiComponent array{
+ *     id: string,
+ *     component: array<string, array<string, mixed>>
+ * }
+ * @phpstan-type UiEvent array<string, array<string, mixed>>
+ */
 class ChatUiRenderer
 {
     /**
      * @param Message[] $messages
-     * @return array<int, array<string, mixed>>
+     * @return array<int, UiEvent>
      */
     public function render(array $messages): array
     {
@@ -29,6 +36,7 @@ class ChatUiRenderer
         $cardIds = [];
 
         foreach ($messages as $index => $message) {
+            // 每条消息都会展开成一个 Card 以及它的标题、正文节点。
             $cardId = 'card_' . $index;
             $columnId = 'card_col_' . $index;
             $captionId = 'caption_' . $index;
@@ -110,6 +118,7 @@ class ChatUiRenderer
     private function body(Message $message): string
     {
         return match (true) {
+            // 工具调用结果转成 JSON，便于在聊天界面里直接查看和排查。
             $message instanceof ToolCallMessage => (string) json_encode($message->jsonSerialize()['tools'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT),
             $message instanceof ToolResultMessage => (string) json_encode($message->jsonSerialize()['tools'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT),
             default => $message->getContent(),

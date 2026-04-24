@@ -42,6 +42,7 @@ class ReadSessionDocumentTool extends Tool
             return 'No document has been uploaded for this session.';
         }
 
+        // 保持工具输出原始且紧凑，方便模型直接引用文档片段。
         $excerpt = $this->documents->extractRelevantExcerpt($this->sessionId, $document, $question, self::EXCERPT_LIMIT);
         if ($excerpt === '') {
             return 'The uploaded document is empty.';

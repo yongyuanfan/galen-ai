@@ -17,6 +17,9 @@ use function uniqid;
 use const JSON_UNESCAPED_SLASHES;
 use const JSON_UNESCAPED_UNICODE;
 
+/**
+ * @phpstan-type UiEvent array<string, array<string, mixed>>
+ */
 class SessionChatService
 {
     private const ASSISTANT_ROLE = 'Galen AI';
@@ -46,7 +49,7 @@ class SessionChatService
     }
 
     /**
-     * @return Generator<int, array<string, mixed>>
+     * @return Generator<int, UiEvent>
      */
     public function streamChat(string $sessionId, string $message): Generator
     {
@@ -71,7 +74,7 @@ class SessionChatService
     }
 
     /**
-     * @return Generator<int, array<string, mixed>>
+     * @return Generator<int, UiEvent>
      */
     public function streamApprove(string $sessionId, bool $approved, string $reason = ''): Generator
     {
@@ -84,6 +87,9 @@ class SessionChatService
         );
     }
 
+    /**
+     * @param callable(): mixed $operation
+     */
     private function respondToInteraction(string $sessionId, callable $operation): string
     {
         try {
@@ -93,12 +99,14 @@ class SessionChatService
 
             return $this->sse($this->renderedHistory($sessionId));
         } catch (WorkflowInterrupt $interrupt) {
+            // 中断请求也走同一条 UI 流，前端可以直接在对话里发起审批。
             return $this->sse($this->renderedHistoryWithInterrupt($sessionId, $interrupt->getRequest()));
         }
     }
 
     /**
-     * @return Generator<int, array<string, mixed>>
+     * @param callable(): iterable<int, mixed> $streamFactory
+     * @return Generator<int, UiEvent>
      */
     private function streamInteraction(string $sessionId, callable $streamFactory): Generator
     {
@@ -125,6 +133,7 @@ class SessionChatService
 
                 $content .= $event->content;
 
+                // 前端按整段内容覆盖草稿，因此这里持续返回累计后的文本。
                 yield [
                     'assistantMessageDelta' => [
                         'id' => $streamId,
@@ -136,6 +145,7 @@ class SessionChatService
             $this->store->setPendingInterrupt($sessionId, null);
             $this->store->touch($sessionId);
 
+            // 流式输出结束后回放持久化历史，确保界面状态与服务端一致。
             foreach ($this->renderedHistory($sessionId) as $message) {
                 yield $message;
             }
@@ -167,7 +177,7 @@ class SessionChatService
     }
 
     /**
-     * @return array<int, array<string, mixed>>
+     * @return array<int, UiEvent>
      */
     private function renderedHistory(string $sessionId): array
     {
@@ -175,10 +185,12 @@ class SessionChatService
     }
 
     /**
-     * @return array<int, array<string, mixed>>
+     * @param object $request
+     * @return array<int, UiEvent>
      */
     private function renderedHistoryWithInterrupt(string $sessionId, $request): array
     {
+        // 先持久化审批载荷，后续 approve/reject 才能继续同一个工作流。
         $this->store->setPendingInterrupt($sessionId, $request->jsonSerialize());
 
         return [
@@ -193,7 +205,7 @@ class SessionChatService
     }
 
     /**
-     * @param array<int, array<string, mixed>> $messages
+     * @param array<int, UiEvent> $messages
      */
     private function jsonLines(array $messages): string
     {
@@ -204,7 +216,7 @@ class SessionChatService
     }
 
     /**
-     * @param array<int, array<string, mixed>> $messages
+     * @param array<int, UiEvent> $messages
      */
     private function sse(array $messages): string
     {

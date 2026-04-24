@@ -28,6 +28,16 @@ use const JSON_PRETTY_PRINT;
 use const JSON_UNESCAPED_SLASHES;
 use const JSON_UNESCAPED_UNICODE;
 
+/**
+ * @phpstan-type PendingInterrupt array<string, mixed>
+ * @phpstan-type SessionMeta array{
+ *     id: string,
+ *     title: string,
+ *     created_at: int,
+ *     updated_at: int,
+ *     pending_interrupt: PendingInterrupt|null
+ * }
+ */
 class SessionStore
 {
     private const DEFAULT_TITLE = 'New Session';
@@ -54,7 +64,7 @@ class SessionStore
     }
 
     /**
-     * @return array<int, array<string, mixed>>
+     * @return array<int, SessionMeta>
      */
     public function all(): array
     {
@@ -75,7 +85,7 @@ class SessionStore
     }
 
     /**
-     * @return array<string, mixed>|null
+     * @return SessionMeta|null
      */
     public function get(string $sessionId): ?array
     {
@@ -94,6 +104,7 @@ class SessionStore
             return;
         }
 
+        // 先删子项，再删除 session 根目录。
         $iterator = new RecursiveIteratorIterator(
             new RecursiveDirectoryIterator($directory, RecursiveDirectoryIterator::SKIP_DOTS),
             RecursiveIteratorIterator::CHILD_FIRST
@@ -135,6 +146,9 @@ class SessionStore
         $this->writeMeta($sessionId, $meta);
     }
 
+    /**
+     * @param PendingInterrupt|null $interrupt
+     */
     public function setPendingInterrupt(string $sessionId, ?array $interrupt): void
     {
         $meta = $this->require($sessionId);
@@ -144,7 +158,7 @@ class SessionStore
     }
 
     /**
-     * @return array<string, mixed>|null
+     * @return PendingInterrupt|null
      */
     public function getPendingInterrupt(string $sessionId): ?array
     {
@@ -207,7 +221,7 @@ class SessionStore
     }
 
     /**
-     * @return array<string, mixed>|null
+     * @return SessionMeta|null
      */
     private function readMetaByFile(string $file): ?array
     {
@@ -221,7 +235,7 @@ class SessionStore
     }
 
     /**
-     * @return array<string, mixed>
+     * @return SessionMeta
      */
     private function require(string $sessionId): array
     {
@@ -235,6 +249,7 @@ class SessionStore
 
     private function sessionsRoot(): string
     {
+        // 所有运行期 session 状态都放在 Webman 的 runtime 目录下。
         $directory = runtime_path('sessions');
         $this->ensureDirectory($directory);
 
@@ -253,7 +268,7 @@ class SessionStore
     }
 
     /**
-     * @param array<string, mixed> $payload
+     * @param SessionMeta $payload
      */
     private function writeJsonFile(string $path, array $payload): void
     {

@@ -29,6 +29,16 @@ use const JSON_UNESCAPED_UNICODE;
 use const PATHINFO_EXTENSION;
 use const PATHINFO_FILENAME;
 
+/**
+ * @phpstan-type DocumentRecord array{
+ *     id: string,
+ *     name: string,
+ *     stored_name?: string,
+ *     path?: string,
+ *     extension: string,
+ *     uploaded_at: int
+ * }
+ */
 class DocumentManager
 {
     private const EXCERPT_LIMIT = 12000;
@@ -39,7 +49,7 @@ class DocumentManager
     }
 
     /**
-     * @return array<string, mixed>
+     * @return DocumentRecord
      */
     public function save(string $sessionId, UploadFile $file): array
     {
@@ -71,7 +81,7 @@ class DocumentManager
     }
 
     /**
-     * @return array<int, array<string, mixed>>
+     * @return array<int, DocumentRecord>
      */
     public function all(string $sessionId): array
     {
@@ -90,7 +100,7 @@ class DocumentManager
     }
 
     /**
-     * @return array<string, mixed>|null
+     * @return DocumentRecord|null
      */
     public function latest(string $sessionId): ?array
     {
@@ -127,7 +137,7 @@ class DocumentManager
     }
 
     /**
-     * @param array<string, mixed> $document
+     * @param DocumentRecord $document
      */
     public function resolvePath(string $sessionId, array $document): string
     {
@@ -136,6 +146,7 @@ class DocumentManager
             return $this->documentPath($sessionId, $storedName);
         }
 
+        // 兼容旧数据：历史记录直接保存了绝对路径。
         $legacyPath = (string) ($document['path'] ?? '');
         if ($legacyPath !== '') {
             return $legacyPath;
@@ -145,7 +156,7 @@ class DocumentManager
     }
 
     /**
-     * @param array<string, mixed> $document
+     * @param DocumentRecord $document
      */
     public function extractRelevantExcerpt(string $sessionId, array $document, string $question, int $maxLength = self::EXCERPT_LIMIT): string
     {
@@ -165,7 +176,9 @@ class DocumentManager
             return $excerpt . "\n\n[truncated]";
         }
 
-        $start = max(0, $offset - self::EXCERPT_PADDING);
+        // 以首个关键词命中点为中心截窗，尽量保留周边上下文。
+        $padding = min(self::EXCERPT_PADDING, max(0, intdiv($maxLength, 2)));
+        $start = max(0, $offset - $padding);
         $excerpt = mb_substr($content, $start, $maxLength);
         $end = $start + mb_strlen($excerpt);
 
@@ -181,7 +194,7 @@ class DocumentManager
     }
 
     /**
-     * @param array<int, array<string, mixed>> $documents
+     * @param array<int, DocumentRecord> $documents
      */
     private function write(string $sessionId, array $documents): void
     {
@@ -224,9 +237,21 @@ class DocumentManager
     {
         $parts = preg_split('/[^\p{L}\p{N}_-]+/u', $question) ?: [];
 
-        return array_values(array_filter(
-            $parts,
-            static fn (string $part): bool => mb_strlen($part) >= 2
-        ));
+        $keywords = [];
+        foreach ($parts as $part) {
+            if (mb_strlen($part) < 2) {
+                continue;
+            }
+
+            $keywords[] = $part;
+
+            if (preg_match('/\p{Han}/u', $part) === 1 && mb_strlen($part) > 4) {
+                for ($index = 0; $index <= mb_strlen($part) - 2; $index++) {
+                    $keywords[] = mb_substr($part, $index, 2);
+                }
+            }
+        }
+
+        return array_values(array_unique($keywords));
     }
 }
