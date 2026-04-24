@@ -95,7 +95,7 @@ final class SessionChatServiceTest extends TestCase
         $events = iterator_to_array($service->streamChat('sess_reasoning', '复杂问题', true), false);
 
         self::assertSame('assistantReasoningStart', array_key_first($events[0]));
-        self::assertSame('Deep Thinking', $events[0]['assistantReasoningStart']['role']);
+        self::assertSame('深度思考', $events[0]['assistantReasoningStart']['role']);
         self::assertSame('先分析病史', $events[1]['assistantReasoningDelta']['content']);
         self::assertSame('先分析病史，再结合症状', $events[2]['assistantReasoningDelta']['content']);
         self::assertSame('assistantMessageStart', array_key_first($events[3]));

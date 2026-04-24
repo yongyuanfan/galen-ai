@@ -24,7 +24,7 @@ use const JSON_UNESCAPED_UNICODE;
 class SessionChatService
 {
     private const ASSISTANT_ROLE = 'Galen AI';
-    private const REASONING_ROLE = 'Deep Thinking';
+    private const REASONING_ROLE = '深度思考';
 
     public function __construct(
         private SessionStore $store,

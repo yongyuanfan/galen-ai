@@ -34,49 +34,17 @@ class ChatUiRenderer
     {
         $components = [];
         $cardIds = [];
+        $cardIndex = 0;
 
-        foreach ($messages as $index => $message) {
-            // 每条消息都会展开成一个 Card 以及它的标题、正文节点。
-            $cardId = 'card_' . $index;
-            $columnId = 'card_col_' . $index;
-            $captionId = 'caption_' . $index;
-            $bodyId = 'body_' . $index;
+        foreach ($messages as $message) {
+            if ($message instanceof AssistantMessage) {
+                $reasoning = trim((string) $message->getMetadata('reasoning_content'));
+                if ($reasoning !== '') {
+                    $this->appendCard($components, $cardIds, $cardIndex++, '深度思考', $reasoning);
+                }
+            }
 
-            $cardIds[] = $cardId;
-
-            $components[] = [
-                'id' => $cardId,
-                'component' => [
-                    'Card' => [
-                        'children' => [$columnId],
-                    ],
-                ],
-            ];
-            $components[] = [
-                'id' => $columnId,
-                'component' => [
-                    'Column' => [
-                        'children' => [$captionId, $bodyId],
-                    ],
-                ],
-            ];
-            $components[] = [
-                'id' => $captionId,
-                'component' => [
-                    'Text' => [
-                        'value' => $this->roleLabel($message),
-                        'usageHint' => 'caption',
-                    ],
-                ],
-            ];
-            $components[] = [
-                'id' => $bodyId,
-                'component' => [
-                    'Text' => [
-                        'value' => $this->body($message),
-                    ],
-                ],
-            ];
+            $this->appendCard($components, $cardIds, $cardIndex++, $this->roleLabel($message), $this->body($message));
         }
 
         return [
@@ -123,5 +91,54 @@ class ChatUiRenderer
             $message instanceof ToolResultMessage => (string) json_encode($message->jsonSerialize()['tools'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT),
             default => $message->getContent(),
         };
+    }
+
+    /**
+     * @param array<int, UiComponent> $components
+     * @param array<int, string> $cardIds
+     */
+    private function appendCard(array &$components, array &$cardIds, int $index, string $role, string $body): void
+    {
+        // 每条消息都会展开成一个 Card 以及它的标题、正文节点。
+        $cardId = 'card_' . $index;
+        $columnId = 'card_col_' . $index;
+        $captionId = 'caption_' . $index;
+        $bodyId = 'body_' . $index;
+
+        $cardIds[] = $cardId;
+
+        $components[] = [
+            'id' => $cardId,
+            'component' => [
+                'Card' => [
+                    'children' => [$columnId],
+                ],
+            ],
+        ];
+        $components[] = [
+            'id' => $columnId,
+            'component' => [
+                'Column' => [
+                    'children' => [$captionId, $bodyId],
+                ],
+            ],
+        ];
+        $components[] = [
+            'id' => $captionId,
+            'component' => [
+                'Text' => [
+                    'value' => $role,
+                    'usageHint' => 'caption',
+                ],
+            ],
+        ];
+        $components[] = [
+            'id' => $bodyId,
+            'component' => [
+                'Text' => [
+                    'value' => $body,
+                ],
+            ],
+        ];
     }
 }
