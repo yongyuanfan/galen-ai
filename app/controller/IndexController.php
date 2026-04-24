@@ -7,10 +7,10 @@ namespace app\controller;
 use support\Request;
 use support\Response;
 
-class IndexController
+class IndexController extends BaseController
 {
     public function index(Request $request): Response
     {
-        return view('index/view', ['name' => 'Galen AI']);
+        return $this->renderTemplate('index/view', ['name' => 'Galen AI']);
     }
 }

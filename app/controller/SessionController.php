@@ -17,7 +17,7 @@ use function json_decode;
 use function json_encode;
 use function strlen;
 
-class SessionController
+class SessionController extends BaseController
 {
     private SessionStore $store;
     private SessionChatService $chat;
@@ -32,19 +32,19 @@ class SessionController
 
     public function index(): SupportResponse
     {
-        return json($this->store->all());
+        return $this->renderJson($this->store->all());
     }
 
     public function create(): SupportResponse
     {
         $session = $this->store->create();
-        return json(['id' => $session['id']]);
+        return $this->renderJson(['id' => $session['id']]);
     }
 
     public function delete(string $id): SupportResponse
     {
         $this->store->delete($id);
-        return json(['ok' => true]);
+        return $this->renderJson(['ok' => true]);
     }
 
     public function render(string $id): SupportResponse
@@ -71,7 +71,7 @@ class SessionController
             $document = $this->documents->save($id, $file);
             $this->store->touch($id);
 
-            return json([
+            return $this->renderJson([
                 'name' => $document['name'],
                 'path' => $this->documents->resolvePath($id, $document),
             ]);
@@ -117,47 +117,5 @@ class SessionController
         } catch (\Throwable $exception) {
             return $this->jsonError($exception->getMessage(), 500);
         }
-    }
-
-    private function jsonError(string $message, int $status): SupportResponse
-    {
-        return response(
-            json_encode(['error' => $message], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-            $status,
-            ['Content-Type' => 'application/json']
-        );
-    }
-
-    /**
-     * @param iterable<int, array<string, mixed>> $messages
-     */
-    private function streamSse(Request $request, iterable $messages): void
-    {
-        $connection = $request->connection;
-        // 先发送 SSE 响应头，后续分块数据才能被客户端持续消费。
-        $connection->send((string) new Response(200, [
-            'Content-Type' => 'text/event-stream',
-            'Cache-Control' => 'no-cache',
-            'Connection' => 'keep-alive',
-            'X-Accel-Buffering' => 'no',
-            'Transfer-Encoding' => 'chunked',
-        ], ''), true);
-
-        try {
-            foreach ($messages as $message) {
-                // 连接已启用 chunked 传输，这里将每个 SSE 帧包装成一个 HTTP 分块。
-                $payload = 'data: ' . json_encode($message, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n\n";
-                $connection->send(dechex(strlen($payload)) . "\r\n" . $payload . "\r\n", true);
-            }
-        } catch (\Throwable $exception) {
-            $payload = 'data: ' . json_encode([
-                'error' => [
-                    'message' => $exception->getMessage(),
-                ],
-            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n\n";
-            $connection->send(dechex(strlen($payload)) . "\r\n" . $payload . "\r\n", true);
-        }
-
-        $connection->close("0\r\n\r\n", true);
     }
 }
