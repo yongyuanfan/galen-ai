@@ -11,6 +11,7 @@ use app\neuron\SessionStore;
 use PHPUnit\Framework\TestCase;
 use support\Request;
 use support\Response;
+use Workerman\Connection\TcpConnection;
 
 use function json_decode;
 use function sprintf;
@@ -96,6 +97,37 @@ final class SessionControllerTest extends TestCase
         self::assertInstanceOf(Response::class, $response);
         self::assertSame(422, $response->getStatusCode());
         self::assertSame(['error' => 'Message is required'], $this->decodeJson($response));
+    }
+
+    public function testChatForwardsDeepThinkingFlagToService(): void
+    {
+        $store = $this->createMock(SessionStore::class);
+        $documents = $this->createMock(DocumentManager::class);
+        $chat = $this->createMock(SessionChatService::class);
+        $request = $this->makeJsonRequest('POST', '/sessions/sess_chat/chat', '{"message":"请详细分析","deep_thinking":true}');
+        $connection = $this->createMock(TcpConnection::class);
+        $request->connection = $connection;
+
+        $store->expects(self::once())->method('get')->with('sess_chat')->willReturn([
+            'id' => 'sess_chat',
+            'title' => 'New Session',
+            'created_at' => 1,
+            'updated_at' => 1,
+            'pending_interrupt' => null,
+        ]);
+        $chat->expects(self::once())
+            ->method('streamChat')
+            ->with('sess_chat', '请详细分析', true)
+            ->willReturn((function () {
+                yield ['assistantReasoningStart' => ['id' => 'reason_1', 'role' => 'Deep Thinking']];
+            })());
+        $connection->expects(self::exactly(2))->method('send');
+        $connection->expects(self::once())->method('close');
+
+        $controller = new SessionController($store, $documents, $chat);
+        $response = $controller->chat($request, 'sess_chat');
+
+        self::assertSame('', $response);
     }
 
     /**

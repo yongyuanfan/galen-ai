@@ -21,6 +21,7 @@ class DeepseekAgent extends Agent
         protected array $customTools = [],
         protected ?string $customInstructions = null,
         protected array $customMiddleware = [],
+        protected array $providerParameters = [],
         ...$arguments,
     ) {
         parent::__construct(...$arguments);
@@ -32,6 +33,7 @@ class DeepseekAgent extends Agent
         return new Deepseek(
             key: config('neuron.agent.deepseek.key'),
             model: config('neuron.agent.deepseek.model'),
+            parameters: $this->providerParameters,
         );
     }
 

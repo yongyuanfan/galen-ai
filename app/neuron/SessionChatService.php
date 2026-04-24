@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace app\neuron;
 
 use Generator;
+use NeuronAI\Chat\Messages\Stream\Chunks\ReasoningChunk;
 use NeuronAI\Chat\Messages\Stream\Chunks\TextChunk;
 use NeuronAI\Chat\Messages\UserMessage;
 use NeuronAI\Workflow\Interrupt\ApprovalRequest;
@@ -23,6 +24,7 @@ use const JSON_UNESCAPED_UNICODE;
 class SessionChatService
 {
     private const ASSISTANT_ROLE = 'Galen AI';
+    private const REASONING_ROLE = 'Deep Thinking';
 
     public function __construct(
         private SessionStore $store,
@@ -37,10 +39,10 @@ class SessionChatService
         return $this->jsonLines($this->renderer->render($history->getMessages()));
     }
 
-    public function chat(string $sessionId, string $message): string
+    public function chat(string $sessionId, string $message, bool $deepThinking = false): string
     {
         $this->store->updateTitleIfNeeded($sessionId, $message);
-        $agent = $this->factory->make($sessionId);
+        $agent = $this->factory->make($sessionId, $deepThinking);
 
         return $this->respondToInteraction(
             $sessionId,
@@ -51,10 +53,10 @@ class SessionChatService
     /**
      * @return Generator<int, UiEvent>
      */
-    public function streamChat(string $sessionId, string $message): Generator
+    public function streamChat(string $sessionId, string $message, bool $deepThinking = false): Generator
     {
         $this->store->updateTitleIfNeeded($sessionId, $message);
-        $agent = $this->factory->make($sessionId);
+        $agent = $this->factory->make($sessionId, $deepThinking);
 
         yield from $this->streamInteraction(
             $sessionId,
@@ -111,11 +113,38 @@ class SessionChatService
     private function streamInteraction(string $sessionId, callable $streamFactory): Generator
     {
         $streamId = 'assistant_' . uniqid();
+        $reasoningId = 'reasoning_' . uniqid();
         $content = '';
+        $reasoning = '';
         $started = false;
+        $reasoningStarted = false;
 
         try {
             foreach ($streamFactory() as $event) {
+                if ($event instanceof ReasoningChunk) {
+                    if (!$reasoningStarted) {
+                        $reasoningStarted = true;
+
+                        yield [
+                            'assistantReasoningStart' => [
+                                'id' => $reasoningId,
+                                'role' => self::REASONING_ROLE,
+                            ],
+                        ];
+                    }
+
+                    $reasoning .= $event->content;
+
+                    yield [
+                        'assistantReasoningDelta' => [
+                            'id' => $reasoningId,
+                            'content' => $reasoning,
+                        ],
+                    ];
+
+                    continue;
+                }
+
                 if (!$event instanceof TextChunk) {
                     continue;
                 }

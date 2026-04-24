@@ -88,12 +88,13 @@ class SessionController
 
         $payload = json_decode($request->rawBody(), true);
         $message = is_array($payload) ? trim((string) ($payload['message'] ?? '')) : '';
+        $deepThinking = is_array($payload) ? (bool) ($payload['deep_thinking'] ?? false) : false;
         if ($message === '') {
             return $this->jsonError('Message is required', 422);
         }
 
         try {
-            $this->streamSse($request, $this->chat->streamChat($id, $message));
+            $this->streamSse($request, $this->chat->streamChat($id, $message, $deepThinking));
             return '';
         } catch (\Throwable $exception) {
             return $this->jsonError($exception->getMessage(), 500);

@@ -12,6 +12,7 @@ use app\neuron\SessionStore;
 use NeuronAI\Agent\AgentHandler;
 use NeuronAI\Chat\History\FileChatHistory;
 use NeuronAI\Chat\Messages\AssistantMessage;
+use NeuronAI\Chat\Messages\Stream\Chunks\ReasoningChunk;
 use NeuronAI\Chat\Messages\Stream\Chunks\TextChunk;
 use NeuronAI\Workflow\Events\Event;
 use NeuronAI\Workflow\Interrupt\Action;
@@ -45,7 +46,7 @@ final class SessionChatServiceTest extends TestCase
             ['surfaceUpdate' => ['ok' => true]],
         ]);
 
-        $factory->expects(self::once())->method('make')->with('sess_1')->willReturn($agent);
+        $factory->expects(self::once())->method('make')->with('sess_1', false)->willReturn($agent);
         $agent->expects(self::once())->method('stream')->willReturn($handler);
         $handler->expects(self::once())->method('events')->willReturn((function () {
             yield new TextChunk('message_1', '你');
@@ -60,6 +61,47 @@ final class SessionChatServiceTest extends TestCase
         self::assertSame('你', $events[1]['assistantMessageDelta']['content']);
         self::assertSame('你好', $events[2]['assistantMessageDelta']['content']);
         self::assertSame(['surfaceUpdate' => ['ok' => true]], $events[3]);
+    }
+
+    public function testStreamChatYieldsReasoningChunksWhenDeepThinkingIsEnabled(): void
+    {
+        $store = $this->createMock(SessionStore::class);
+        $factory = $this->createMock(SessionAgentFactory::class);
+        $renderer = $this->createMock(ChatUiRenderer::class);
+        $agent = $this->createMock(DeepseekAgent::class);
+        $handler = $this->createMock(AgentHandler::class);
+        $history = $this->createMock(FileChatHistory::class);
+
+        $store->expects(self::once())->method('updateTitleIfNeeded')->with('sess_reasoning', '复杂问题');
+        $store->expects(self::once())->method('setPendingInterrupt')->with('sess_reasoning', null);
+        $store->expects(self::once())->method('touch')->with('sess_reasoning');
+        $store->expects(self::once())->method('history')->with('sess_reasoning')->willReturn($history);
+
+        $history->method('getMessages')->willReturn([]);
+        $renderer->expects(self::once())->method('render')->with([])->willReturn([
+            ['surfaceUpdate' => ['done' => true]],
+        ]);
+
+        $factory->expects(self::once())->method('make')->with('sess_reasoning', true)->willReturn($agent);
+        $agent->expects(self::once())->method('stream')->willReturn($handler);
+        $handler->expects(self::once())->method('events')->willReturn((function () {
+            yield new ReasoningChunk('reason_1', '先分析病史');
+            yield new ReasoningChunk('reason_1', '，再结合症状');
+            yield new TextChunk('message_1', '最终');
+            yield new TextChunk('message_1', '结论');
+        })());
+
+        $service = new SessionChatService($store, $factory, $renderer);
+        $events = iterator_to_array($service->streamChat('sess_reasoning', '复杂问题', true), false);
+
+        self::assertSame('assistantReasoningStart', array_key_first($events[0]));
+        self::assertSame('Deep Thinking', $events[0]['assistantReasoningStart']['role']);
+        self::assertSame('先分析病史', $events[1]['assistantReasoningDelta']['content']);
+        self::assertSame('先分析病史，再结合症状', $events[2]['assistantReasoningDelta']['content']);
+        self::assertSame('assistantMessageStart', array_key_first($events[3]));
+        self::assertSame('最终', $events[4]['assistantMessageDelta']['content']);
+        self::assertSame('最终结论', $events[5]['assistantMessageDelta']['content']);
+        self::assertSame(['surfaceUpdate' => ['done' => true]], $events[6]);
     }
 
     public function testChatPersistsInterruptAndReturnsInterruptEvent(): void
@@ -83,7 +125,7 @@ final class SessionChatServiceTest extends TestCase
             ['surfaceUpdate' => ['ok' => true]],
         ]);
 
-        $factory->expects(self::once())->method('make')->with('sess_2')->willReturn($agent);
+        $factory->expects(self::once())->method('make')->with('sess_2', false)->willReturn($agent);
         $agent->expects(self::once())->method('chat')->willReturn($handler);
         $handler->expects(self::once())->method('getMessage')->willThrowException($interrupt);
 
@@ -115,7 +157,7 @@ final class SessionChatServiceTest extends TestCase
             ['surfaceUpdate' => ['approved' => true]],
         ]);
 
-        $factory->expects(self::once())->method('make')->with('sess_3')->willReturn($agent);
+        $factory->expects(self::once())->method('make')->with('sess_3', false)->willReturn($agent);
         $agent->expects(self::once())
             ->method('chat')
             ->with(
