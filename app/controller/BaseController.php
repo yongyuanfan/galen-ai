@@ -41,7 +41,7 @@ abstract class BaseController
     {
         $connection = $request->connection;
         // 先发送 SSE 响应头，后续分块数据才能被客户端持续消费。
-        $connection->send((string) new Response(200, [
+        $connection->send((string) new \Webman\Http\Response(200, [
             'Content-Type' => 'text/event-stream',
             'Cache-Control' => 'no-cache',
             'Connection' => 'keep-alive',

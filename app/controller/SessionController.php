@@ -8,8 +8,7 @@ use app\neuron\DocumentManager;
 use app\neuron\SessionChatService;
 use app\neuron\SessionStore;
 use support\Request;
-use support\Response as SupportResponse;
-use Webman\Http\Response;
+use support\Response;
 
 use function dechex;
 use function is_array;
@@ -30,24 +29,24 @@ class SessionController extends BaseController
         $this->chat = $chat;
     }
 
-    public function index(): SupportResponse
+    public function index(): Response
     {
         return $this->renderJson($this->store->all());
     }
 
-    public function create(): SupportResponse
+    public function create(): Response
     {
         $session = $this->store->create();
         return $this->renderJson(['id' => $session['id']]);
     }
 
-    public function delete(string $id): SupportResponse
+    public function delete(string $id): Response
     {
         $this->store->delete($id);
         return $this->renderJson(['ok' => true]);
     }
 
-    public function render(string $id): SupportResponse
+    public function render(string $id): Response
     {
         if ($this->store->get($id) === null) {
             return $this->jsonError('Session not found', 404);
@@ -56,7 +55,7 @@ class SessionController extends BaseController
         return response($this->chat->renderSession($id), 200, ['Content-Type' => 'text/plain; charset=utf-8']);
     }
 
-    public function upload(Request $request, string $id): SupportResponse
+    public function upload(Request $request, string $id): Response
     {
         if ($this->store->get($id) === null) {
             return $this->jsonError('Session not found', 404);
@@ -80,7 +79,7 @@ class SessionController extends BaseController
         }
     }
 
-    public function chat(Request $request, string $id): SupportResponse|string
+    public function chat(Request $request, string $id): Response|string
     {
         if ($this->store->get($id) === null) {
             return $this->jsonError('Session not found', 404);
@@ -101,7 +100,7 @@ class SessionController extends BaseController
         }
     }
 
-    public function approve(Request $request, string $id): SupportResponse|string
+    public function approve(Request $request, string $id): Response|string
     {
         if ($this->store->get($id) === null) {
             return $this->jsonError('Session not found', 404);
