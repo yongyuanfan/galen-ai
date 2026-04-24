@@ -10,9 +10,4 @@ class IndexController
     {
         return view('index/view', ['name' => 'Galen AI']);
     }
-
-    public function json(Request $request)
-    {
-        return json(['code' => 0, 'msg' => 'ok']);
-    }
 }
