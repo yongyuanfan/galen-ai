@@ -50,9 +50,16 @@
   }
   #chat-container .card .column { gap: 6px; }
   #chat-container .caption {
-    font-size: 0.72rem; font-weight: 600; text-transform: uppercase;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 8px; font-size: 0.72rem; font-weight: 600; text-transform: uppercase;
     letter-spacing: .06em; color: #6b7280;
   }
+  .caption-text { flex: 1; }
+  .toggle-reasoning-btn {
+    padding: 2px 8px; border: 1px solid #d8b4fe; border-radius: 999px;
+    background: #fff; color: #7c3aed; cursor: pointer; font-size: 0.7rem; line-height: 1.4;
+  }
+  .toggle-reasoning-btn:hover { background: #f5f3ff; }
   #chat-container .body { font-size: 0.9rem; line-height: 1.65; color: #1f2937; }
   #chat-container .body p { margin-bottom: 0.5em; }
   #chat-container .body pre { background: #f3f4f6; border-radius: 6px; padding: 10px 12px; overflow-x: auto; font-size: 0.82rem; margin: 8px 0; }
@@ -89,6 +96,7 @@
     white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere;
     max-height: 260px; overflow-y: auto;
   }
+  #chat-container .card[data-role="深度思考"].collapsed .body { display: none; }
 
   /* Approval needed card */
   #chat-container .card[data-role="approval needed"] {
@@ -269,6 +277,7 @@ function render() {
     return;
   }
   container.innerHTML = renderComponent(rootId);
+  attachReasoningToggles();
   container.scrollTop = container.scrollHeight;
 }
 
@@ -333,7 +342,7 @@ function renderComponent(id) {
     }
     const hint = comp.Text.usageHint || 'body';
     if (hint === 'caption') {
-      return `<div class="caption" data-id="${esc(id)}" data-datakey="${esc(comp.Text.dataKey||'')}">${esc(value)}</div>`;
+      return `<div class="caption" data-id="${esc(id)}" data-datakey="${esc(comp.Text.dataKey||'')}"><span class="caption-text">${esc(value)}</span></div>`;
     }
     const html = typeof marked !== 'undefined' ? marked.parse(value || '') : esc(value);
     return `<div class="body" data-id="${esc(id)}" data-datakey="${esc(comp.Text.dataKey||'')}">${html}</div>`;
@@ -358,6 +367,25 @@ function renderDataBindings() {
         container.scrollTop = container.scrollHeight;
       }
     }
+  });
+
+  attachReasoningToggles();
+}
+
+function attachReasoningToggles() {
+  document.querySelectorAll('#chat-container .card[data-role="深度思考"]').forEach(card => {
+    const caption = card.querySelector('.caption');
+    if (!caption || caption.querySelector('.toggle-reasoning-btn')) return;
+
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'toggle-reasoning-btn';
+    button.textContent = card.classList.contains('collapsed') ? '展开' : '收起';
+    button.addEventListener('click', () => {
+      card.classList.toggle('collapsed');
+      button.textContent = card.classList.contains('collapsed') ? '展开' : '收起';
+    });
+    caption.appendChild(button);
   });
 }
 
