@@ -35,7 +35,8 @@
     "webman/redis": "^2.1",
     "webman/validation": "^2.2",
     "webman/blade": "^1.5",
-    "neuron-core/neuron-ai": "^3.3"
+    "neuron-core/neuron-ai": "^3.3",
+    "mcp/sdk": "^0.4.0"
   },
   "require-dev": {
     "phpunit/phpunit": "^11.5"
@@ -72,5 +73,10 @@
     ]
   },
   "minimum-stability": "dev",
-  "prefer-stable": true
+  "prefer-stable": true,
+  "config": {
+    "allow-plugins": {
+      "php-http/discovery": true
+    }
+  }
 }

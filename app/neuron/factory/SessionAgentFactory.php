@@ -14,6 +14,7 @@ use NeuronAI\Agent\AgentState;
 use NeuronAI\Agent\Middleware\ToolApproval;
 use NeuronAI\Agent\Nodes\ToolNode;
 use NeuronAI\Agent\SystemPrompt;
+use NeuronAI\MCP\McpConnector;
 
 use function array_replace_recursive;
 
@@ -35,6 +36,10 @@ class SessionAgentFactory
                 new ReadSessionDocumentTool($sessionId, $this->documents),
                 new FileRenameTool(),
                 new GenerateFileToolkit(),
+                ...McpConnector::make([
+                    'command' => 'php',
+                    'args' => ['/Users/yong/Projects/galen-ai/filesystem_server.php'],
+                ])->tools(),
             ],
             $this->instructions($sessionId),
             // 读取上传文档、重命名文件和生成文件都需要显式审批。
