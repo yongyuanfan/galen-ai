@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace app\neuron;
 
+use app\neuron\tool\FileRenameTool;
 use app\neuron\tool\ReadSessionDocumentTool;
 use NeuronAI\Agent\AgentState;
 use NeuronAI\Agent\Middleware\ToolApproval;
@@ -26,10 +27,13 @@ class SessionAgentFactory
         $state = (new AgentState())->setChatHistory($this->store->history($sessionId));
 
         return DeepseekAgent::make(
-            [new ReadSessionDocumentTool($sessionId, $this->documents)],
+            [
+                new ReadSessionDocumentTool($sessionId, $this->documents),
+                new FileRenameTool(),
+            ],
             $this->instructions($sessionId),
-            // 当前流程里只有读取已上传文档需要显式审批。
-            [ToolNode::class => [new ToolApproval(['read_uploaded_document'])]],
+            // 读取上传文档和重命名文件都需要显式审批。
+            [ToolNode::class => [new ToolApproval(['read_uploaded_document', 'rename_file'])]],
             $this->providerParameters($deepThinking),
             $this->store->workflowPersistence($sessionId),
             $this->store->workflowToken($sessionId),
@@ -61,6 +65,7 @@ class SessionAgentFactory
                 $hasDocument
                     ? 'A document is available in this session. Use the read_uploaded_document tool before answering any document-specific question.'
                     : 'If the user asks about a document but none has been uploaded, tell them to upload one first.',
+                'If the user asks to rename a file, use the rename_file tool with the exact source path and the target filename only.',
                 'Answer in Chinese when the user uses Chinese, otherwise follow the user language.',
             ],
             output: [
