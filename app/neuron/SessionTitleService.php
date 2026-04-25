@@ -33,4 +33,33 @@ class SessionTitleService
             $this->store->completeTitleGeneration($sessionId, $title);
         });
     }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function generateNowIfNeeded(string $sessionId, string $message): array
+    {
+        if ($this->store->fallbackTitle($message) === $this->store->defaultTitle()) {
+            return $this->store->requireSession($sessionId);
+        }
+
+        $current = $this->store->requireSession($sessionId);
+        if (($current['title'] ?? '') !== $this->store->defaultTitle()) {
+            return $current;
+        }
+
+        if (!$this->store->markTitleGenerationPending($sessionId)) {
+            return $this->store->requireSession($sessionId);
+        }
+
+        try {
+            $title = $this->generator->generate($message);
+        } catch (\Throwable) {
+            $title = $this->store->fallbackTitle($message);
+        }
+
+        $this->store->completeTitleGeneration($sessionId, $title);
+
+        return $this->store->requireSession($sessionId);
+    }
 }

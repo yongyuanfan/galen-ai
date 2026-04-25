@@ -36,11 +36,11 @@ return [
         $container->get(SessionStore::class),
         $container->get(SessionAgentFactory::class),
         $container->get(ChatUiRenderer::class),
-        $container->get(SessionTitleService::class),
     ),
     SessionController::class => static fn (ContainerInterface $container): SessionController => new SessionController(
         $container->get(SessionStore::class),
         $container->get(DocumentManager::class),
         $container->get(SessionChatService::class),
+        $container->get(SessionTitleService::class),
     ),
 ];

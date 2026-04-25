@@ -23,5 +23,6 @@ Route::post('/sessions', [app\controller\SessionController::class, 'create']);
 Route::delete('/sessions/{id}', [app\controller\SessionController::class, 'delete']);
 Route::get('/sessions/{id}/render', [app\controller\SessionController::class, 'render']);
 Route::post('/sessions/{id}/docs', [app\controller\SessionController::class, 'upload']);
+Route::post('/sessions/{id}/title', [app\controller\SessionController::class, 'title']);
 Route::post('/sessions/{id}/chat', [app\controller\SessionController::class, 'chat']);
 Route::post('/sessions/{id}/approve', [app\controller\SessionController::class, 'approve']);

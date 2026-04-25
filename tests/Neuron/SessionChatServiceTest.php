@@ -9,7 +9,6 @@ use app\neuron\DeepseekAgent;
 use app\neuron\SessionAgentFactory;
 use app\neuron\SessionChatService;
 use app\neuron\SessionStore;
-use app\neuron\SessionTitleService;
 use NeuronAI\Agent\AgentHandler;
 use NeuronAI\Chat\History\FileChatHistory;
 use NeuronAI\Chat\Messages\AssistantMessage;
@@ -33,12 +32,10 @@ final class SessionChatServiceTest extends TestCase
         $store = $this->createMock(SessionStore::class);
         $factory = $this->createMock(SessionAgentFactory::class);
         $renderer = $this->createMock(ChatUiRenderer::class);
-        $titles = $this->createMock(SessionTitleService::class);
         $agent = $this->createMock(DeepseekAgent::class);
         $handler = $this->createMock(AgentHandler::class);
         $history = $this->createMock(FileChatHistory::class);
 
-        $titles->expects(self::once())->method('queueGenerationIfNeeded')->with('sess_1', '你好');
         $store->expects(self::once())->method('setPendingInterrupt')->with('sess_1', null);
         $store->expects(self::once())->method('touch')->with('sess_1');
         $store->expects(self::once())->method('history')->with('sess_1')->willReturn($history);
@@ -55,7 +52,7 @@ final class SessionChatServiceTest extends TestCase
             yield new TextChunk('message_1', '好');
         })());
 
-        $service = new SessionChatService($store, $factory, $renderer, $titles);
+        $service = new SessionChatService($store, $factory, $renderer);
         $events = iterator_to_array($service->streamChat('sess_1', '你好'), false);
 
         self::assertSame('assistantMessageStart', array_key_first($events[0]));
@@ -70,12 +67,10 @@ final class SessionChatServiceTest extends TestCase
         $store = $this->createMock(SessionStore::class);
         $factory = $this->createMock(SessionAgentFactory::class);
         $renderer = $this->createMock(ChatUiRenderer::class);
-        $titles = $this->createMock(SessionTitleService::class);
         $agent = $this->createMock(DeepseekAgent::class);
         $handler = $this->createMock(AgentHandler::class);
         $history = $this->createMock(FileChatHistory::class);
 
-        $titles->expects(self::once())->method('queueGenerationIfNeeded')->with('sess_reasoning', '复杂问题');
         $store->expects(self::once())->method('setPendingInterrupt')->with('sess_reasoning', null);
         $store->expects(self::once())->method('touch')->with('sess_reasoning');
         $store->expects(self::once())->method('history')->with('sess_reasoning')->willReturn($history);
@@ -94,7 +89,7 @@ final class SessionChatServiceTest extends TestCase
             yield new TextChunk('message_1', '结论');
         })());
 
-        $service = new SessionChatService($store, $factory, $renderer, $titles);
+        $service = new SessionChatService($store, $factory, $renderer);
         $events = iterator_to_array($service->streamChat('sess_reasoning', '复杂问题', true), false);
 
         self::assertSame('assistantReasoningStart', array_key_first($events[0]));
@@ -112,14 +107,12 @@ final class SessionChatServiceTest extends TestCase
         $store = $this->createMock(SessionStore::class);
         $factory = $this->createMock(SessionAgentFactory::class);
         $renderer = $this->createMock(ChatUiRenderer::class);
-        $titles = $this->createMock(SessionTitleService::class);
         $agent = $this->createMock(DeepseekAgent::class);
         $handler = $this->createMock(AgentHandler::class);
         $history = $this->createMock(FileChatHistory::class);
         $request = new ApprovalRequest('需要审批', [new Action('action_1', '读取文档')]);
         $interrupt = $this->workflowInterrupt($request);
 
-        $titles->expects(self::once())->method('queueGenerationIfNeeded')->with('sess_2', '帮我看文档');
         $store->expects(self::once())->method('setPendingInterrupt')->with('sess_2', $request->jsonSerialize());
         $store->expects(self::never())->method('touch');
         $store->expects(self::once())->method('history')->with('sess_2')->willReturn($history);
@@ -133,7 +126,7 @@ final class SessionChatServiceTest extends TestCase
         $agent->expects(self::once())->method('chat')->willReturn($handler);
         $handler->expects(self::once())->method('getMessage')->willThrowException($interrupt);
 
-        $service = new SessionChatService($store, $factory, $renderer, $titles);
+        $service = new SessionChatService($store, $factory, $renderer);
         $payload = $service->chat('sess_2', '帮我看文档');
 
         self::assertStringContainsString('surfaceUpdate', $payload);
@@ -146,7 +139,6 @@ final class SessionChatServiceTest extends TestCase
         $store = $this->createMock(SessionStore::class);
         $factory = $this->createMock(SessionAgentFactory::class);
         $renderer = $this->createMock(ChatUiRenderer::class);
-        $titles = $this->createMock(SessionTitleService::class);
         $agent = $this->createMock(DeepseekAgent::class);
         $handler = $this->createMock(AgentHandler::class);
         $history = $this->createMock(FileChatHistory::class);
@@ -176,9 +168,7 @@ final class SessionChatServiceTest extends TestCase
             ->willReturn($handler);
         $handler->expects(self::once())->method('getMessage')->willReturn(new AssistantMessage('已执行'));
 
-        $titles->expects(self::never())->method('queueGenerationIfNeeded');
-
-        $service = new SessionChatService($store, $factory, $renderer, $titles);
+        $service = new SessionChatService($store, $factory, $renderer);
         $payload = $service->approve('sess_3', true, '允许执行');
 
         self::assertStringContainsString('approved', $payload);

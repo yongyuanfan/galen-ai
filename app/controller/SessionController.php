@@ -7,6 +7,7 @@ namespace app\controller;
 use app\neuron\DocumentManager;
 use app\neuron\SessionChatService;
 use app\neuron\SessionStore;
+use app\neuron\SessionTitleService;
 use support\Request;
 use support\Response;
 
@@ -21,12 +22,14 @@ class SessionController extends BaseController
     private SessionStore $store;
     private SessionChatService $chat;
     private DocumentManager $documents;
+    private SessionTitleService $titles;
 
-    public function __construct(SessionStore $store, DocumentManager $documents, SessionChatService $chat)
+    public function __construct(SessionStore $store, DocumentManager $documents, SessionChatService $chat, SessionTitleService $titles)
     {
         $this->store = $store;
         $this->documents = $documents;
         $this->chat = $chat;
+        $this->titles = $titles;
     }
 
     public function index(): Response
@@ -95,6 +98,25 @@ class SessionController extends BaseController
         try {
             $this->streamSse($request, $this->chat->streamChat($id, $message, $deepThinking));
             return '';
+        } catch (\Throwable $exception) {
+            return $this->jsonError($exception->getMessage(), 500);
+        }
+    }
+
+    public function title(Request $request, string $id): Response
+    {
+        if ($this->store->get($id) === null) {
+            return $this->jsonError('Session not found', 404);
+        }
+
+        $payload = json_decode($request->rawBody(), true);
+        $message = is_array($payload) ? trim((string) ($payload['message'] ?? '')) : '';
+        if ($message === '') {
+            return $this->jsonError('Message is required', 422);
+        }
+
+        try {
+            return $this->renderJson($this->titles->generateNowIfNeeded($id, $message));
         } catch (\Throwable $exception) {
             return $this->jsonError($exception->getMessage(), 500);
         }

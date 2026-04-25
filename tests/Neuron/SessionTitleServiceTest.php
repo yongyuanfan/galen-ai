@@ -74,4 +74,62 @@ final class SessionTitleServiceTest extends TestCase
         $service = new SessionTitleService($store, $generator, $dispatcher);
         $service->queueGenerationIfNeeded('sess_3', '   ');
     }
+
+    public function testGenerateNowIfNeededReturnsGeneratedTitleImmediately(): void
+    {
+        $store = $this->createMock(SessionStore::class);
+        $generator = $this->createMock(SessionTitleGenerator::class);
+        $dispatcher = $this->createMock(AsyncDispatcher::class);
+
+        $current = [
+            'id' => 'sess_4',
+            'title' => 'New Session',
+            'created_at' => 1,
+            'updated_at' => 1,
+            'title_generation_pending' => false,
+            'pending_interrupt' => null,
+        ];
+        $updated = $current;
+        $updated['title'] = '体检报告分析';
+        $updated['updated_at'] = 2;
+
+        $store->expects(self::once())->method('fallbackTitle')->with('帮我分析体检报告')->willReturn('帮我分析体检报告');
+        $store->expects(self::exactly(2))->method('defaultTitle')->willReturn('New Session');
+        $store->expects(self::exactly(2))->method('requireSession')->with('sess_4')->willReturnOnConsecutiveCalls($current, $updated);
+        $store->expects(self::once())->method('markTitleGenerationPending')->with('sess_4')->willReturn(true);
+        $generator->expects(self::once())->method('generate')->with('帮我分析体检报告')->willReturn('体检报告分析');
+        $store->expects(self::once())->method('completeTitleGeneration')->with('sess_4', '体检报告分析');
+        $dispatcher->expects(self::never())->method('dispatch');
+
+        $service = new SessionTitleService($store, $generator, $dispatcher);
+
+        self::assertSame($updated, $service->generateNowIfNeeded('sess_4', '帮我分析体检报告'));
+    }
+
+    public function testGenerateNowIfNeededSkipsWhenTitleAlreadyExists(): void
+    {
+        $store = $this->createMock(SessionStore::class);
+        $generator = $this->createMock(SessionTitleGenerator::class);
+        $dispatcher = $this->createMock(AsyncDispatcher::class);
+        $current = [
+            'id' => 'sess_5',
+            'title' => '已存在标题',
+            'created_at' => 1,
+            'updated_at' => 2,
+            'title_generation_pending' => false,
+            'pending_interrupt' => null,
+        ];
+
+        $store->expects(self::once())->method('fallbackTitle')->with('帮我分析体检报告')->willReturn('帮我分析体检报告');
+        $store->expects(self::exactly(2))->method('defaultTitle')->willReturn('New Session');
+        $store->expects(self::once())->method('requireSession')->with('sess_5')->willReturn($current);
+        $store->expects(self::never())->method('markTitleGenerationPending');
+        $generator->expects(self::never())->method('generate');
+        $store->expects(self::never())->method('completeTitleGeneration');
+        $dispatcher->expects(self::never())->method('dispatch');
+
+        $service = new SessionTitleService($store, $generator, $dispatcher);
+
+        self::assertSame($current, $service->generateNowIfNeeded('sess_5', '帮我分析体检报告'));
+    }
 }

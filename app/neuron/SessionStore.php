@@ -99,6 +99,14 @@ class SessionStore
         return $this->readMetaByFile($file);
     }
 
+    /**
+     * @return SessionMeta
+     */
+    public function requireSession(string $sessionId): array
+    {
+        return $this->require($sessionId);
+    }
+
     public function delete(string $sessionId): void
     {
         $directory = $this->sessionDirectory($sessionId);
