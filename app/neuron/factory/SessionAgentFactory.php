@@ -8,6 +8,7 @@ use app\neuron\agent\DeepseekAgent;
 use app\neuron\document\DocumentManager;
 use app\neuron\store\SessionStore;
 use app\neuron\tool\FileRenameTool;
+use app\neuron\tool\GenerateFileToolkit;
 use app\neuron\tool\ReadSessionDocumentTool;
 use NeuronAI\Agent\AgentState;
 use NeuronAI\Agent\Middleware\ToolApproval;
@@ -33,10 +34,21 @@ class SessionAgentFactory
             [
                 new ReadSessionDocumentTool($sessionId, $this->documents),
                 new FileRenameTool(),
+                new GenerateFileToolkit(),
             ],
             $this->instructions($sessionId),
-            // 读取上传文档和重命名文件都需要显式审批。
-            [ToolNode::class => [new ToolApproval(['read_uploaded_document', 'rename_file'])]],
+            // 读取上传文档、重命名文件和生成文件都需要显式审批。
+            [
+                ToolNode::class => [
+                    new ToolApproval([
+                        'read_uploaded_document',
+                        'rename_file',
+                        'generate_word_file',
+                        'generate_excel_file',
+                        'generate_ppt_file'
+                    ]),
+                ],
+            ],
             $this->providerParameters($deepThinking),
             $this->store->workflowPersistence($sessionId),
             $this->store->workflowToken($sessionId),
