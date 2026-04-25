@@ -23,6 +23,8 @@ return [
                 'model' => 'qwen3.5:0.8b',
                 'parameters' => [
                     'temperature' => 0.2,
+                    'think' => false,
+                    'num_predict' => 24,
                 ],
             ],
         ],
