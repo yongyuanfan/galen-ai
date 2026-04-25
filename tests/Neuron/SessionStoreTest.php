@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace tests\Neuron;
 
-use app\neuron\SessionStore;
+use app\neuron\store\SessionStore;
 use PHPUnit\Framework\TestCase;
 
 use function is_dir;

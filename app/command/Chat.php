@@ -2,7 +2,7 @@
 
 namespace app\command;
 
-use app\neuron\DeepseekAgent;
+use app\neuron\agent\DeepseekAgent;
 
 use NeuronAI\Chat\Messages\UserMessage;
 

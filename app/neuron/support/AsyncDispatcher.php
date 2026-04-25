@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace app\neuron;
+namespace app\neuron\support;
 
 use Workerman\Timer;
 

@@ -5,9 +5,10 @@ declare(strict_types=1);
 namespace tests\Controller;
 
 use app\controller\SessionController;
-use app\neuron\DocumentManager;
-use app\neuron\SessionChatService;
-use app\neuron\SessionStore;
+use app\neuron\document\DocumentManager;
+use app\neuron\service\SessionChatService;
+use app\neuron\service\SessionTitleService;
+use app\neuron\store\SessionStore;
 use PHPUnit\Framework\TestCase;
 use support\Request;
 use support\Response;
@@ -23,6 +24,7 @@ final class SessionControllerTest extends TestCase
         $store = $this->createMock(SessionStore::class);
         $documents = $this->createMock(DocumentManager::class);
         $chat = $this->createMock(SessionChatService::class);
+        $titles = $this->createMock(SessionTitleService::class);
 
         $store->expects(self::once())->method('create')->willReturn([
             'id' => 'sess_test_1',
@@ -32,7 +34,7 @@ final class SessionControllerTest extends TestCase
             'pending_interrupt' => null,
         ]);
 
-        $controller = new SessionController($store, $documents, $chat);
+        $controller = new SessionController($store, $documents, $chat, $titles);
         $response = $controller->create();
 
         self::assertSame(200, $response->getStatusCode());
@@ -44,10 +46,11 @@ final class SessionControllerTest extends TestCase
         $store = $this->createMock(SessionStore::class);
         $documents = $this->createMock(DocumentManager::class);
         $chat = $this->createMock(SessionChatService::class);
+        $titles = $this->createMock(SessionTitleService::class);
 
         $store->expects(self::once())->method('get')->with('sess_missing')->willReturn(null);
 
-        $controller = new SessionController($store, $documents, $chat);
+        $controller = new SessionController($store, $documents, $chat, $titles);
         $response = $controller->render('sess_missing');
 
         self::assertSame(404, $response->getStatusCode());
@@ -59,6 +62,7 @@ final class SessionControllerTest extends TestCase
         $store = $this->createMock(SessionStore::class);
         $documents = $this->createMock(DocumentManager::class);
         $chat = $this->createMock(SessionChatService::class);
+        $titles = $this->createMock(SessionTitleService::class);
         $request = $this->makeJsonRequest('POST', '/sessions/sess_upload/upload', '{}');
 
         $store->expects(self::once())->method('get')->with('sess_upload')->willReturn([
@@ -69,7 +73,7 @@ final class SessionControllerTest extends TestCase
             'pending_interrupt' => null,
         ]);
 
-        $controller = new SessionController($store, $documents, $chat);
+        $controller = new SessionController($store, $documents, $chat, $titles);
         $response = $controller->upload($request, 'sess_upload');
 
         self::assertSame(422, $response->getStatusCode());
@@ -81,6 +85,7 @@ final class SessionControllerTest extends TestCase
         $store = $this->createMock(SessionStore::class);
         $documents = $this->createMock(DocumentManager::class);
         $chat = $this->createMock(SessionChatService::class);
+        $titles = $this->createMock(SessionTitleService::class);
         $request = $this->makeJsonRequest('POST', '/sessions/sess_chat/chat', '{"message":"   "}');
 
         $store->expects(self::once())->method('get')->with('sess_chat')->willReturn([
@@ -91,7 +96,7 @@ final class SessionControllerTest extends TestCase
             'pending_interrupt' => null,
         ]);
 
-        $controller = new SessionController($store, $documents, $chat);
+        $controller = new SessionController($store, $documents, $chat, $titles);
         $response = $controller->chat($request, 'sess_chat');
 
         self::assertInstanceOf(Response::class, $response);
@@ -104,6 +109,7 @@ final class SessionControllerTest extends TestCase
         $store = $this->createMock(SessionStore::class);
         $documents = $this->createMock(DocumentManager::class);
         $chat = $this->createMock(SessionChatService::class);
+        $titles = $this->createMock(SessionTitleService::class);
         $request = $this->makeJsonRequest('POST', '/sessions/sess_chat/chat', '{"message":"请详细分析","deep_thinking":true}');
         $connection = $this->createMock(TcpConnection::class);
         $request->connection = $connection;
@@ -124,7 +130,7 @@ final class SessionControllerTest extends TestCase
         $connection->expects(self::exactly(2))->method('send');
         $connection->expects(self::once())->method('close');
 
-        $controller = new SessionController($store, $documents, $chat);
+        $controller = new SessionController($store, $documents, $chat, $titles);
         $response = $controller->chat($request, 'sess_chat');
 
         self::assertSame('', $response);

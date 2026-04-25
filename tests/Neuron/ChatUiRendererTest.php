@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace tests\Neuron;
 
-use app\neuron\ChatUiRenderer;
+use app\neuron\ui\ChatUiRenderer;
 use NeuronAI\Chat\Messages\AssistantMessage;
 use NeuronAI\Chat\Messages\UserMessage;
 use PHPUnit\Framework\TestCase;

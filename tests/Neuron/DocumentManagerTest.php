@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace tests\Neuron;
 
-use app\neuron\DocumentManager;
-use app\neuron\SessionStore;
+use app\neuron\document\DocumentManager;
+use app\neuron\store\SessionStore;
 use PHPUnit\Framework\TestCase;
 
 use function file_put_contents;

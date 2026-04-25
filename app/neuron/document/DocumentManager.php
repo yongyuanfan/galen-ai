@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
-namespace app\neuron;
+namespace app\neuron\document;
+
+use app\neuron\store\SessionStore;
 
 use Webman\Http\UploadFile;
 

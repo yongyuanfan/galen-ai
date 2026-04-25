@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace app\neuron\tool;
 
-use app\neuron\DocumentManager;
+use app\neuron\document\DocumentManager;
 use NeuronAI\Tools\PropertyType;
 use NeuronAI\Tools\Tool;
 use NeuronAI\Tools\ToolProperty;

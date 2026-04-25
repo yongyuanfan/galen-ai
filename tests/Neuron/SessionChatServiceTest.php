@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace tests\Neuron;
 
-use app\neuron\ChatUiRenderer;
-use app\neuron\DeepseekAgent;
-use app\neuron\SessionAgentFactory;
-use app\neuron\SessionChatService;
-use app\neuron\SessionStore;
+use app\neuron\agent\DeepseekAgent;
+use app\neuron\factory\SessionAgentFactory;
+use app\neuron\service\SessionChatService;
+use app\neuron\store\SessionStore;
+use app\neuron\ui\ChatUiRenderer;
 use NeuronAI\Agent\AgentHandler;
 use NeuronAI\Chat\History\FileChatHistory;
 use NeuronAI\Chat\Messages\AssistantMessage;

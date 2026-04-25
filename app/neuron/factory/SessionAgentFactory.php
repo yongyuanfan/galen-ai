@@ -2,8 +2,11 @@
 
 declare(strict_types=1);
 
-namespace app\neuron;
+namespace app\neuron\factory;
 
+use app\neuron\agent\DeepseekAgent;
+use app\neuron\document\DocumentManager;
+use app\neuron\store\SessionStore;
 use app\neuron\tool\FileRenameTool;
 use app\neuron\tool\ReadSessionDocumentTool;
 use NeuronAI\Agent\AgentState;

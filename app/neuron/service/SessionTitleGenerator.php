@@ -2,7 +2,10 @@
 
 declare(strict_types=1);
 
-namespace app\neuron;
+namespace app\neuron\service;
+
+use app\neuron\agent\OllamaTitleAgent;
+use app\neuron\store\SessionStore;
 
 use NeuronAI\Chat\Messages\UserMessage;
 

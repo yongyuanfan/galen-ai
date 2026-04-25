@@ -2,7 +2,11 @@
 
 declare(strict_types=1);
 
-namespace app\neuron;
+namespace app\neuron\service;
+
+use app\neuron\factory\SessionAgentFactory;
+use app\neuron\store\SessionStore;
+use app\neuron\ui\ChatUiRenderer;
 
 use Generator;
 use NeuronAI\Chat\Messages\Stream\Chunks\ReasoningChunk;

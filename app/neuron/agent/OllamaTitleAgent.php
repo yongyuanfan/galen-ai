@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace app\neuron;
+namespace app\neuron\agent;
 
 use NeuronAI\Agent\Agent;
 use NeuronAI\Agent\SystemPrompt;

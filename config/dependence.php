@@ -3,14 +3,14 @@
 declare(strict_types=1);
 
 use app\controller\SessionController;
-use app\neuron\AsyncDispatcher;
-use app\neuron\ChatUiRenderer;
-use app\neuron\DocumentManager;
-use app\neuron\SessionAgentFactory;
-use app\neuron\SessionChatService;
-use app\neuron\SessionStore;
-use app\neuron\SessionTitleGenerator;
-use app\neuron\SessionTitleService;
+use app\neuron\document\DocumentManager;
+use app\neuron\factory\SessionAgentFactory;
+use app\neuron\service\SessionChatService;
+use app\neuron\service\SessionTitleGenerator;
+use app\neuron\service\SessionTitleService;
+use app\neuron\store\SessionStore;
+use app\neuron\support\AsyncDispatcher;
+use app\neuron\ui\ChatUiRenderer;
 use Psr\Container\ContainerInterface;
 
 return [

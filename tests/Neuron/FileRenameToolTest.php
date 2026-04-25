@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace tests\Neuron;
 
-use app\neuron\SessionStore;
+use app\neuron\store\SessionStore;
 use app\neuron\tool\FileRenameTool;
 use PHPUnit\Framework\TestCase;
 

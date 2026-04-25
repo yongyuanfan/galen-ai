@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace app\neuron;
+namespace app\neuron\ui;
 
 use NeuronAI\Chat\Messages\AssistantMessage;
 use NeuronAI\Chat\Messages\Message;

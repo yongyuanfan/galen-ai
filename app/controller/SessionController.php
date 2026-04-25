@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace app\controller;
 
-use app\neuron\DocumentManager;
-use app\neuron\SessionChatService;
-use app\neuron\SessionStore;
-use app\neuron\SessionTitleService;
+use app\neuron\document\DocumentManager;
+use app\neuron\service\SessionChatService;
+use app\neuron\service\SessionTitleService;
+use app\neuron\store\SessionStore;
 use support\Request;
 use support\Response;
 
