@@ -30,6 +30,7 @@ class SessionChatService
         private SessionStore $store,
         private SessionAgentFactory $factory,
         private ChatUiRenderer $renderer,
+        private SessionTitleService $titles,
     ) {
     }
 
@@ -41,7 +42,7 @@ class SessionChatService
 
     public function chat(string $sessionId, string $message, bool $deepThinking = false): string
     {
-        $this->store->updateTitleIfNeeded($sessionId, $message);
+        $this->titles->queueGenerationIfNeeded($sessionId, $message);
         $agent = $this->factory->make($sessionId, $deepThinking);
 
         return $this->respondToInteraction(
@@ -55,7 +56,7 @@ class SessionChatService
      */
     public function streamChat(string $sessionId, string $message, bool $deepThinking = false): Generator
     {
-        $this->store->updateTitleIfNeeded($sessionId, $message);
+        $this->titles->queueGenerationIfNeeded($sessionId, $message);
         $agent = $this->factory->make($sessionId, $deepThinking);
 
         yield from $this->streamInteraction(

@@ -35,6 +35,7 @@ use const JSON_UNESCAPED_UNICODE;
  *     title: string,
  *     created_at: int,
  *     updated_at: int,
+ *     title_generation_pending: bool,
  *     pending_interrupt: PendingInterrupt|null
  * }
  */
@@ -54,6 +55,7 @@ class SessionStore
             'title' => self::DEFAULT_TITLE,
             'created_at' => $now,
             'updated_at' => $now,
+            'title_generation_pending' => false,
             'pending_interrupt' => null,
         ];
 
@@ -129,21 +131,68 @@ class SessionStore
         $this->writeMeta($sessionId, $meta);
     }
 
-    public function updateTitleIfNeeded(string $sessionId, string $candidate): void
+    public function shouldGenerateTitle(string $sessionId): bool
+    {
+        $meta = $this->require($sessionId);
+
+        return ($meta['title'] ?? '') === self::DEFAULT_TITLE
+            && (bool) ($meta['title_generation_pending'] ?? false) === false;
+    }
+
+    public function markTitleGenerationPending(string $sessionId): bool
+    {
+        $meta = $this->require($sessionId);
+        if (($meta['title'] ?? '') !== self::DEFAULT_TITLE) {
+            return false;
+        }
+
+        if ((bool) ($meta['title_generation_pending'] ?? false) === true) {
+            return false;
+        }
+
+        $meta['title_generation_pending'] = true;
+        $this->writeMeta($sessionId, $meta);
+
+        return true;
+    }
+
+    public function completeTitleGeneration(string $sessionId, string $title): bool
+    {
+        $title = $this->fallbackTitle($title);
+
+        $meta = $this->require($sessionId);
+        $meta['title_generation_pending'] = false;
+
+        if (($meta['title'] ?? '') !== self::DEFAULT_TITLE) {
+            $this->writeMeta($sessionId, $meta);
+            return false;
+        }
+
+        $meta['title'] = $title;
+        $meta['updated_at'] = time();
+        $this->writeMeta($sessionId, $meta);
+
+        return true;
+    }
+
+    public function fallbackTitle(string $candidate): string
     {
         $candidate = trim($candidate);
         if ($candidate === '') {
-            return;
+            return self::DEFAULT_TITLE;
         }
 
-        $meta = $this->require($sessionId);
-        if (($meta['title'] ?? '') !== self::DEFAULT_TITLE) {
-            return;
-        }
+        return mb_substr($candidate, 0, self::TITLE_LIMIT);
+    }
 
-        $meta['title'] = mb_substr($candidate, 0, self::TITLE_LIMIT);
-        $meta['updated_at'] = time();
-        $this->writeMeta($sessionId, $meta);
+    public function defaultTitle(): string
+    {
+        return self::DEFAULT_TITLE;
+    }
+
+    public function titleLimit(): int
+    {
+        return self::TITLE_LIMIT;
     }
 
     /**

@@ -24,6 +24,7 @@ final class SessionStoreTest extends TestCase
         $meta = $this->store->create();
 
         self::assertSame('New Session', $meta['title']);
+        self::assertFalse($meta['title_generation_pending']);
         self::assertMatchesRegularExpression('/^sess_[a-f0-9]{32}$/', $meta['id']);
         self::assertNull($meta['pending_interrupt']);
         self::assertIsInt($meta['created_at']);
@@ -34,21 +35,38 @@ final class SessionStoreTest extends TestCase
         $this->store->delete($meta['id']);
     }
 
-    public function testUpdateTitleOnlyChangesDefaultTitle(): void
+    public function testTitleGenerationOnlyChangesDefaultTitleOnce(): void
     {
         $meta = $this->store->create();
         $sessionId = $meta['id'];
 
-        $this->store->updateTitleIfNeeded($sessionId, '这是第一次标题更新');
+        self::assertTrue($this->store->shouldGenerateTitle($sessionId));
+        self::assertTrue($this->store->markTitleGenerationPending($sessionId));
+        self::assertFalse($this->store->markTitleGenerationPending($sessionId));
+
+        $pending = $this->store->get($sessionId);
+        self::assertTrue($pending['title_generation_pending']);
+
+        self::assertTrue($this->store->completeTitleGeneration($sessionId, '这是第一次标题更新'));
+
         $updated = $this->store->get($sessionId);
-
         self::assertSame('这是第一次标题更新', $updated['title']);
+        self::assertFalse($updated['title_generation_pending']);
 
-        $this->store->updateTitleIfNeeded($sessionId, '不会覆盖已存在标题');
+        self::assertFalse($this->store->completeTitleGeneration($sessionId, '不会覆盖已存在标题'));
         $updatedAgain = $this->store->get($sessionId);
 
         self::assertSame('这是第一次标题更新', $updatedAgain['title']);
 
         $this->store->delete($sessionId);
+    }
+
+    public function testFallbackTitleTruncatesAndFallsBackToDefaultWhenEmpty(): void
+    {
+        self::assertSame('New Session', $this->store->fallbackTitle('   '));
+        self::assertSame(
+            '1234567890123456789012345678901234567890',
+            $this->store->fallbackTitle('123456789012345678901234567890123456789012345')
+        );
     }
 }
