@@ -31,8 +31,8 @@ class DeepseekAgent extends Agent
     {
         // 模型配置留在配置文件里，session 层只负责编排。
         return new Deepseek(
-            key: config('neuron.agent.deepseek.key'),
-            model: config('neuron.agent.deepseek.model'),
+            key: config('neuron.models.deepseek.key'),
+            model: config('neuron.models.deepseek.model'),
             parameters: $this->providerParameters,
         );
     }

@@ -26,12 +26,14 @@ Rules:
 - No quotes, labels, numbering, or trailing punctuation
 - Follow the user's language
 - Summarize the main topic naturally instead of copying the full request
+- For questions, extract the topic instead of keeping the question tone
 - Keep it under 20 Chinese characters or 40 English characters
+- If uncertain, return a short neutral title
 PROMPT;
 
-        $content = DeepseekAgent::make(
+        $content = OllamaTitleAgent::make(
             customInstructions: $instructions,
-            providerParameters: config('neuron.agent.deepseek.chat_parameters', []),
+            providerParameters: config('neuron.ollama.title.parameters', []),
         )
             ->chat(new UserMessage($message))
             ->getMessage()
