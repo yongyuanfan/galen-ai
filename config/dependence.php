@@ -9,7 +9,6 @@ use app\neuron\service\SessionChatService;
 use app\neuron\service\SessionTitleGenerator;
 use app\neuron\service\SessionTitleService;
 use app\neuron\store\SessionStore;
-use app\neuron\support\AsyncDispatcher;
 use app\neuron\ui\ChatUiRenderer;
 use Psr\Container\ContainerInterface;
 
@@ -18,7 +17,6 @@ return [
     DocumentManager::class => static fn (ContainerInterface $container): DocumentManager => new DocumentManager(
         $container->get(SessionStore::class)
     ),
-    AsyncDispatcher::class => static fn (): AsyncDispatcher => new AsyncDispatcher(),
     ChatUiRenderer::class => static fn (): ChatUiRenderer => new ChatUiRenderer(),
     SessionAgentFactory::class => static fn (ContainerInterface $container): SessionAgentFactory => new SessionAgentFactory(
         $container->get(SessionStore::class),
@@ -30,7 +28,6 @@ return [
     SessionTitleService::class => static fn (ContainerInterface $container): SessionTitleService => new SessionTitleService(
         $container->get(SessionStore::class),
         $container->get(SessionTitleGenerator::class),
-        $container->get(AsyncDispatcher::class),
     ),
     SessionChatService::class => static fn (ContainerInterface $container): SessionChatService => new SessionChatService(
         $container->get(SessionStore::class),
