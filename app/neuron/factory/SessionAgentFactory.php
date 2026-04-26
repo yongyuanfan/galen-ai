@@ -7,9 +7,9 @@ namespace app\neuron\factory;
 use app\neuron\agent\TravelAgent;
 use app\neuron\document\DocumentManager;
 use app\neuron\store\SessionStore;
-use app\neuron\tool\FileRenameTool;
 use app\neuron\tool\GenerateFileToolkit;
 use app\neuron\tool\ReadSessionDocumentTool;
+use app\neuron\tool\RenameFileTool;
 use NeuronAI\Agent\AgentState;
 use NeuronAI\Agent\Middleware\ToolApproval;
 use NeuronAI\Agent\Nodes\ToolNode;
@@ -35,7 +35,7 @@ class SessionAgentFactory
         $agent = TravelAgent::make(
             [
                 new ReadSessionDocumentTool($sessionId, $this->documents),
-                new FileRenameTool(),
+                new RenameFileTool(),
                 new GenerateFileToolkit(),
                 // ...McpConnector::make([
                 //     'command' => 'php',

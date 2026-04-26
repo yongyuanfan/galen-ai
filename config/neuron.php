@@ -22,4 +22,8 @@ return [
             'model' => 'qwen3-embedding:0.6b',
         ],
     ],
+    'workflow' => [
+        // agent: 现有 Agent/RAG 链路；multi_node: 多节点工作流编排。
+        'mode' => 'multi_node', // 'agent',
+    ],
 ];

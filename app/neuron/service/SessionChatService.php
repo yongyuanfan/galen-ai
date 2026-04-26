@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace app\neuron\service;
 
 use app\neuron\factory\SessionAgentFactory;
+use app\neuron\factory\SessionWorkflowFactory;
 use app\neuron\store\SessionStore;
 use app\neuron\ui\ChatUiRenderer;
 
@@ -16,6 +17,8 @@ use NeuronAI\Workflow\Interrupt\ApprovalRequest;
 use NeuronAI\Workflow\Interrupt\WorkflowInterrupt;
 
 use function array_map;
+use function is_array;
+use function json_decode;
 use function json_encode;
 use function uniqid;
 
@@ -34,6 +37,7 @@ class SessionChatService
         private SessionStore $store,
         private SessionAgentFactory $factory,
         private ChatUiRenderer $renderer,
+        private ?SessionWorkflowFactory $workflowFactory = null,
     ) {
     }
 
@@ -45,6 +49,16 @@ class SessionChatService
 
     public function chat(string $sessionId, string $message, bool $deepThinking = false): string
     {
+        if ($this->isMultiNodeWorkflowMode()) {
+            $workflow = $this->resolveWorkflowFactory()->forChat($sessionId, $message, $deepThinking);
+            $this->store->history($sessionId)->addMessage(new UserMessage($message));
+
+            return $this->respondToInteraction(
+                $sessionId,
+                static fn () => $workflow->init()->run(),
+            );
+        }
+
         $agent = $this->factory->make($sessionId, $deepThinking);
 
         return $this->respondToInteraction(
@@ -58,6 +72,18 @@ class SessionChatService
      */
     public function streamChat(string $sessionId, string $message, bool $deepThinking = false): Generator
     {
+        if ($this->isMultiNodeWorkflowMode()) {
+            $workflow = $this->resolveWorkflowFactory()->forChat($sessionId, $message, $deepThinking);
+            $this->store->history($sessionId)->addMessage(new UserMessage($message));
+
+            yield from $this->streamInteraction(
+                $sessionId,
+                static fn () => $workflow->init()->events(),
+            );
+
+            return;
+        }
+
         $agent = $this->factory->make($sessionId, $deepThinking);
 
         yield from $this->streamInteraction(
@@ -69,6 +95,16 @@ class SessionChatService
     public function approve(string $sessionId, bool $approved, string $reason = ''): string
     {
         $request = $this->buildApprovalRequest($sessionId, $approved, $reason);
+
+        if ($this->isMultiNodeWorkflowMode()) {
+            $workflow = $this->resolveWorkflowFactory()->forResume($sessionId);
+
+            return $this->respondToInteraction(
+                $sessionId,
+                static fn () => $workflow->init($request)->run(),
+            );
+        }
+
         $agent = $this->factory->make($sessionId);
 
         return $this->respondToInteraction(
@@ -83,6 +119,18 @@ class SessionChatService
     public function streamApprove(string $sessionId, bool $approved, string $reason = ''): Generator
     {
         $request = $this->buildApprovalRequest($sessionId, $approved, $reason);
+
+        if ($this->isMultiNodeWorkflowMode()) {
+            $workflow = $this->resolveWorkflowFactory()->forResume($sessionId);
+
+            yield from $this->streamInteraction(
+                $sessionId,
+                static fn () => $workflow->init($request)->events(),
+            );
+
+            return;
+        }
+
         $agent = $this->factory->make($sessionId);
 
         yield from $this->streamInteraction(
@@ -229,16 +277,36 @@ class SessionChatService
         // 先持久化审批载荷，后续 approve/reject 才能继续同一个工作流。
         $this->store->setPendingInterrupt($sessionId, $request->jsonSerialize());
 
+        $serialized = $request->jsonSerialize();
+        $actions = $serialized['actions'] ?? [];
+        if (!is_array($actions)) {
+            $actions = json_decode((string) $actions, true);
+        }
+
         return [
             ...$this->renderedHistory($sessionId),
             [
                 'interruptRequest' => [
                     'interruptId' => $sessionId,
                     'description' => $request->getMessage(),
-                    'actions' => $request->jsonSerialize()['actions'] ?? [],
+                    'actions' => is_array($actions) ? $actions : [],
                 ],
             ],
         ];
+    }
+
+    private function isMultiNodeWorkflowMode(): bool
+    {
+        return config('neuron.workflow.mode', 'agent') === 'multi_node';
+    }
+
+    private function resolveWorkflowFactory(): SessionWorkflowFactory
+    {
+        if ($this->workflowFactory instanceof SessionWorkflowFactory) {
+            return $this->workflowFactory;
+        }
+
+        throw new \RuntimeException('Workflow mode is enabled, but SessionWorkflowFactory is not configured.');
     }
 
     /**

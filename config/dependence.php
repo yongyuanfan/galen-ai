@@ -5,6 +5,7 @@ declare(strict_types=1);
 use app\controller\SessionController;
 use app\neuron\document\DocumentManager;
 use app\neuron\factory\SessionAgentFactory;
+use app\neuron\factory\SessionWorkflowFactory;
 use app\neuron\generator\SessionTitleGenerator;
 use app\neuron\service\SessionChatService;
 use app\neuron\service\SessionTitleService;
@@ -22,6 +23,10 @@ return [
         $container->get(SessionStore::class),
         $container->get(DocumentManager::class),
     ),
+    SessionWorkflowFactory::class => static fn (ContainerInterface $container): SessionWorkflowFactory => new SessionWorkflowFactory(
+        $container->get(SessionStore::class),
+        $container->get(DocumentManager::class),
+    ),
     SessionTitleGenerator::class => static fn (ContainerInterface $container): SessionTitleGenerator => new SessionTitleGenerator(
         $container->get(SessionStore::class),
     ),
@@ -33,6 +38,7 @@ return [
         $container->get(SessionStore::class),
         $container->get(SessionAgentFactory::class),
         $container->get(ChatUiRenderer::class),
+        $container->get(SessionWorkflowFactory::class),
     ),
     SessionController::class => static fn (ContainerInterface $container): SessionController => new SessionController(
         $container->get(SessionStore::class),
