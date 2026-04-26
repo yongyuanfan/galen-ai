@@ -40,6 +40,16 @@ class SessionAgentFactory
                     'command' => 'php',
                     'args' => ['/Users/yong/Projects/galen-ai/filesystem_server.php'],
                 ])->tools(),
+                ...McpConnector::make([
+                    'command' => 'docker',
+                    'args' => [
+                        'run',
+                        '--rm',
+                        '-i',
+                        '-v', '/Users/yong/Projects/galen-ai:/workdir',
+                        'mcp/markitdown:latest',
+                    ],
+                ])->tools(),
             ],
             $this->instructions($sessionId),
             // 读取上传文档、重命名文件和生成文件都需要显式审批。
@@ -50,7 +60,8 @@ class SessionAgentFactory
                         'rename_file',
                         'generate_word_file',
                         'generate_excel_file',
-                        'generate_ppt_file'
+                        'generate_ppt_file',
+                        'convert_to_markdown',
                     ]),
                 ],
             ],
