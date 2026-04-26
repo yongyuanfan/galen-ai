@@ -17,16 +17,5 @@ return [
                 ],
             ],
         ],
-        'ollama' => [
-            'title' => [
-                'url' => 'http://127.0.0.1:11434/api',
-                'model' => 'qwen3.5:0.8b',
-                'parameters' => [
-                    'temperature' => 0.2,
-                    'think' => false,
-                    'num_predict' => 24,
-                ],
-            ],
-        ],
     ],
 ];

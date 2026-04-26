@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace app\neuron\service;
 
-use app\neuron\agent\OllamaTitleAgent;
+use app\neuron\agent\GenerateTitleAgent;
 use app\neuron\store\SessionStore;
 
 use NeuronAI\Chat\Messages\UserMessage;
@@ -42,9 +42,9 @@ Rules:
 - Never output more than one candidate
 PROMPT;
 
-        $content = OllamaTitleAgent::make(
+        $content = GenerateTitleAgent::make(
             customInstructions: $instructions,
-            providerParameters: config('neuron.models.ollama.title.parameters', []),
+            providerParameters: config('neuron.models.deepseek.chat_parameters', []),
         )
             ->chat(new UserMessage($message))
             ->getMessage()

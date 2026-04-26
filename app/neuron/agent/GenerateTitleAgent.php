@@ -7,9 +7,9 @@ namespace app\neuron\agent;
 use NeuronAI\Agent\Agent;
 use NeuronAI\Agent\SystemPrompt;
 use NeuronAI\Providers\AIProviderInterface;
-use NeuronAI\Providers\Ollama\Ollama;
+use NeuronAI\Providers\Deepseek\Deepseek;
 
-class OllamaTitleAgent extends Agent
+class GenerateTitleAgent extends Agent
 {
     public function __construct(
         protected ?string $customInstructions = null,
@@ -21,9 +21,9 @@ class OllamaTitleAgent extends Agent
 
     protected function provider(): AIProviderInterface
     {
-        return new Ollama(
-            url: config('neuron.models.ollama.title.url'),
-            model: config('neuron.models.ollama.title.model'),
+        return new Deepseek(
+            key: config('neuron.models.deepseek.key'),
+            model: config('neuron.models.deepseek.model'),
             parameters: $this->providerParameters,
         );
     }
