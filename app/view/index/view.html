@@ -198,6 +198,7 @@
 let currentSessionId = null;
 let pendingInterruptId = null; // set when the agent is awaiting approval
 let deepThinkingEnabled = false;
+let isApprovalSubmitting = false;
 let sessionsById = {};
 
 // A2UI renderer state
@@ -266,7 +267,7 @@ function processA2UIMessage(msg) {
   }
   if (msg.interruptRequest) {
     pendingInterruptId = msg.interruptRequest.interruptId;
-    renderApprovalButtons(msg.interruptRequest.description);
+    renderApprovalButtons(msg.interruptRequest);
     return;
   }
 }
@@ -398,13 +399,23 @@ function esc(s) {
 // ─── Approval UI ─────────────────────────────────────────────────────────────
 
 // Appends approve/reject buttons below the last card in the chat container.
-function renderApprovalButtons(description) {
+function renderApprovalButtons(interruptRequest) {
   const container = document.getElementById('chat-container');
   removeApprovalButtons();
+  const description = (interruptRequest && interruptRequest.description) || 'Approval required';
+  const actions = Array.isArray(interruptRequest && interruptRequest.actions) ? interruptRequest.actions : [];
+  const actionsHtml = actions.length > 0
+    ? `<div class="body" style="margin-top:10px">${esc(JSON.stringify(actions, null, 2))}</div>`
+    : '';
   const div = document.createElement('div');
   div.id = 'approval-bar';
   div.style.padding = '10px 20px';
   div.innerHTML = `
+    <div class="card" data-role="approval needed">
+      <div class="caption"><span class="caption-text">approval needed</span></div>
+      <div class="body">${esc(description)}</div>
+      ${actionsHtml}
+    </div>
     <div class="approval-buttons">
       <button class="approval-btn-approve" id="btn-approve">✓ Approve</button>
       <button class="approval-btn-reject" id="btn-reject">✗ Reject</button>
@@ -422,7 +433,8 @@ function removeApprovalButtons() {
 }
 
 async function sendApproval(approved) {
-  if (!pendingInterruptId || !currentSessionId) return;
+  if (!pendingInterruptId || !currentSessionId || isApprovalSubmitting) return;
+  isApprovalSubmitting = true;
   removeApprovalButtons();
   const sendBtn = document.getElementById('send-btn');
   sendBtn.disabled = true;
@@ -471,6 +483,7 @@ async function sendApproval(approved) {
   } catch (err) {
     console.error('Approval error:', err);
   } finally {
+    isApprovalSubmitting = false;
     sendBtn.disabled = false;
     await loadSessions();
   }

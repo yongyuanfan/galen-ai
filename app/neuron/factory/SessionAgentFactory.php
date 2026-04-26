@@ -34,9 +34,9 @@ class SessionAgentFactory
 
         $agent = TravelAgent::make(
             [
-                // new ReadSessionDocumentTool($sessionId, $this->documents),
-                // new FileRenameTool(),
-                // new GenerateFileToolkit(),
+                new ReadSessionDocumentTool($sessionId, $this->documents),
+                new FileRenameTool(),
+                new GenerateFileToolkit(),
                 // ...McpConnector::make([
                 //     'command' => 'php',
                 //     'args' => ['/Users/yong/Projects/galen-ai/filesystem_server.php'],
@@ -57,11 +57,11 @@ class SessionAgentFactory
             [
                 ToolNode::class => [
                     new ToolApproval([
-                        // 'read_uploaded_document',
-                        // 'rename_file',
-                        // 'generate_word_file',
-                        // 'generate_excel_file',
-                        // 'generate_ppt_file',
+                        'read_uploaded_document',
+                        'rename_file',
+                        'generate_word_file',
+                        'generate_excel_file',
+                        'generate_ppt_file',
                         // 'convert_to_markdown',
                     ]),
                 ],

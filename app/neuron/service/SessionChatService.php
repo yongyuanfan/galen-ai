@@ -194,7 +194,12 @@ class SessionChatService
             throw new \RuntimeException('No pending approval for this session.');
         }
 
-        $request = ApprovalRequest::fromArray($pending);
+        try {
+            $request = ApprovalRequest::fromArray($pending);
+        } catch (\Throwable $exception) {
+            throw new \RuntimeException('Pending approval payload is invalid and cannot be resumed.', 0, $exception);
+        }
+
         foreach ($request->getActions() as $action) {
             if ($approved) {
                 $action->approve($reason !== '' ? $reason : null);
@@ -230,6 +235,7 @@ class SessionChatService
                 'interruptRequest' => [
                     'interruptId' => $sessionId,
                     'description' => $request->getMessage(),
+                    'actions' => $request->jsonSerialize()['actions'] ?? [],
                 ],
             ],
         ];

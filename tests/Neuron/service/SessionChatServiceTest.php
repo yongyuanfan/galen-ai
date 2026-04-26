@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace tests\neuron\service;
 
-use app\neuron\agent\DeepseekAgent;
+use app\neuron\agent\TravelAgent;
 use app\neuron\factory\SessionAgentFactory;
 use app\neuron\service\SessionChatService;
 use app\neuron\store\SessionStore;
@@ -32,7 +32,7 @@ final class SessionChatServiceTest extends TestCase
         $store = $this->createMock(SessionStore::class);
         $factory = $this->createMock(SessionAgentFactory::class);
         $renderer = $this->createMock(ChatUiRenderer::class);
-        $agent = $this->createMock(DeepseekAgent::class);
+        $agent = $this->createMock(TravelAgent::class);
         $handler = $this->createMock(AgentHandler::class);
         $history = $this->createMock(FileChatHistory::class);
 
@@ -67,7 +67,7 @@ final class SessionChatServiceTest extends TestCase
         $store = $this->createMock(SessionStore::class);
         $factory = $this->createMock(SessionAgentFactory::class);
         $renderer = $this->createMock(ChatUiRenderer::class);
-        $agent = $this->createMock(DeepseekAgent::class);
+        $agent = $this->createMock(TravelAgent::class);
         $handler = $this->createMock(AgentHandler::class);
         $history = $this->createMock(FileChatHistory::class);
 
@@ -107,7 +107,7 @@ final class SessionChatServiceTest extends TestCase
         $store = $this->createMock(SessionStore::class);
         $factory = $this->createMock(SessionAgentFactory::class);
         $renderer = $this->createMock(ChatUiRenderer::class);
-        $agent = $this->createMock(DeepseekAgent::class);
+        $agent = $this->createMock(TravelAgent::class);
         $handler = $this->createMock(AgentHandler::class);
         $history = $this->createMock(FileChatHistory::class);
         $request = new ApprovalRequest('需要审批', [new Action('action_1', '读取文档')]);
@@ -139,7 +139,7 @@ final class SessionChatServiceTest extends TestCase
         $store = $this->createMock(SessionStore::class);
         $factory = $this->createMock(SessionAgentFactory::class);
         $renderer = $this->createMock(ChatUiRenderer::class);
-        $agent = $this->createMock(DeepseekAgent::class);
+        $agent = $this->createMock(TravelAgent::class);
         $handler = $this->createMock(AgentHandler::class);
         $history = $this->createMock(FileChatHistory::class);
         $request = new ApprovalRequest('确认执行', [new Action('action_1', '读取文档')]);
@@ -172,6 +172,64 @@ final class SessionChatServiceTest extends TestCase
         $payload = $service->approve('sess_3', true, '允许执行');
 
         self::assertStringContainsString('approved', $payload);
+    }
+
+    public function testApproveBuildsRejectedRequestWithDefaultReason(): void
+    {
+        $store = $this->createMock(SessionStore::class);
+        $factory = $this->createMock(SessionAgentFactory::class);
+        $renderer = $this->createMock(ChatUiRenderer::class);
+        $agent = $this->createMock(TravelAgent::class);
+        $handler = $this->createMock(AgentHandler::class);
+        $history = $this->createMock(FileChatHistory::class);
+        $request = new ApprovalRequest('确认执行', [new Action('action_1', '重命名文件')]);
+
+        $store->expects(self::once())->method('getPendingInterrupt')->with('sess_4')->willReturn($request->jsonSerialize());
+        $store->expects(self::once())->method('setPendingInterrupt')->with('sess_4', null);
+        $store->expects(self::once())->method('touch')->with('sess_4');
+        $store->expects(self::once())->method('history')->with('sess_4')->willReturn($history);
+
+        $history->method('getMessages')->willReturn([]);
+        $renderer->expects(self::once())->method('render')->with([])->willReturn([
+            ['surfaceUpdate' => ['approved' => false]],
+        ]);
+
+        $factory->expects(self::once())->method('make')->with('sess_4', false)->willReturn($agent);
+        $agent->expects(self::once())
+            ->method('chat')
+            ->with(
+                [],
+                self::callback(function (ApprovalRequest $approvedRequest): bool {
+                    $action = $approvedRequest->getActions()[0];
+
+                    return !$action->isApproved() && $action->feedback === 'Rejected by user.';
+                })
+            )
+            ->willReturn($handler);
+        $handler->expects(self::once())->method('getMessage')->willReturn(new AssistantMessage('已拒绝'));
+
+        $service = new SessionChatService($store, $factory, $renderer);
+        $payload = $service->approve('sess_4', false);
+
+        self::assertStringContainsString('approved', $payload);
+    }
+
+    public function testApproveThrowsClearErrorWhenPendingPayloadIsInvalid(): void
+    {
+        $store = $this->createMock(SessionStore::class);
+        $factory = $this->createMock(SessionAgentFactory::class);
+        $renderer = $this->createMock(ChatUiRenderer::class);
+
+        $store->expects(self::once())->method('getPendingInterrupt')->with('sess_invalid')->willReturn([
+            'not' => 'a-valid-approval-request',
+        ]);
+
+        $service = new SessionChatService($store, $factory, $renderer);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Pending approval payload is invalid and cannot be resumed.');
+
+        $service->approve('sess_invalid', true);
     }
 
     private function workflowInterrupt(ApprovalRequest $request): WorkflowInterrupt

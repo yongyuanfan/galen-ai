@@ -136,6 +136,66 @@ final class SessionControllerTest extends TestCase
         self::assertSame('', $response);
     }
 
+    public function testApproveStreamsWhenRequestIsValid(): void
+    {
+        $store = $this->createMock(SessionStore::class);
+        $documents = $this->createMock(DocumentManager::class);
+        $chat = $this->createMock(SessionChatService::class);
+        $titles = $this->createMock(SessionTitleService::class);
+        $request = $this->makeJsonRequest('POST', '/sessions/sess_approve/approve', '{"approved":true,"reason":"允许"}');
+        $connection = $this->createMock(TcpConnection::class);
+        $request->connection = $connection;
+
+        $store->expects(self::once())->method('get')->with('sess_approve')->willReturn([
+            'id' => 'sess_approve',
+            'title' => 'New Session',
+            'created_at' => 1,
+            'updated_at' => 1,
+            'pending_interrupt' => ['message' => '需要审批'],
+        ]);
+        $chat->expects(self::once())
+            ->method('streamApprove')
+            ->with('sess_approve', true, '允许')
+            ->willReturn((function () {
+                yield ['surfaceUpdate' => ['ok' => true]];
+            })());
+        $connection->expects(self::exactly(2))->method('send');
+        $connection->expects(self::once())->method('close');
+
+        $controller = new SessionController($store, $documents, $chat, $titles);
+        $response = $controller->approve($request, 'sess_approve');
+
+        self::assertSame('', $response);
+    }
+
+    public function testApproveReturnsErrorWhenServiceThrows(): void
+    {
+        $store = $this->createMock(SessionStore::class);
+        $documents = $this->createMock(DocumentManager::class);
+        $chat = $this->createMock(SessionChatService::class);
+        $titles = $this->createMock(SessionTitleService::class);
+        $request = $this->makeJsonRequest('POST', '/sessions/sess_approve_error/approve', '{"approved":true}');
+
+        $store->expects(self::once())->method('get')->with('sess_approve_error')->willReturn([
+            'id' => 'sess_approve_error',
+            'title' => 'New Session',
+            'created_at' => 1,
+            'updated_at' => 1,
+            'pending_interrupt' => ['message' => '需要审批'],
+        ]);
+        $chat->expects(self::once())
+            ->method('streamApprove')
+            ->with('sess_approve_error', true, '')
+            ->willThrowException(new \RuntimeException('No pending approval for this session.'));
+
+        $controller = new SessionController($store, $documents, $chat, $titles);
+        $response = $controller->approve($request, 'sess_approve_error');
+
+        self::assertInstanceOf(Response::class, $response);
+        self::assertSame(500, $response->getStatusCode());
+        self::assertSame(['error' => 'No pending approval for this session.'], $this->decodeJson($response));
+    }
+
     /**
      * @return array<string, mixed>
      */
