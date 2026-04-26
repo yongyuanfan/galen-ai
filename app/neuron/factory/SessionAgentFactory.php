@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace app\neuron\factory;
 
-use app\neuron\agent\DeepseekAgent;
+use app\neuron\agent\TravelAgent;
 use app\neuron\document\DocumentManager;
 use app\neuron\store\SessionStore;
 use app\neuron\tool\FileRenameTool;
@@ -15,6 +15,7 @@ use NeuronAI\Agent\Middleware\ToolApproval;
 use NeuronAI\Agent\Nodes\ToolNode;
 use NeuronAI\Agent\SystemPrompt;
 use NeuronAI\MCP\McpConnector;
+use NeuronAI\RAG\DataLoader\FileDataLoader;
 
 use function array_replace_recursive;
 
@@ -26,42 +27,42 @@ class SessionAgentFactory
     ) {
     }
 
-    public function make(string $sessionId, bool $deepThinking = false): DeepseekAgent
+    public function make(string $sessionId, bool $deepThinking = false): TravelAgent
     {
         // 为当前请求恢复历史消息，让同一 session 能持续对话。
         $state = (new AgentState())->setChatHistory($this->store->history($sessionId));
 
-        return DeepseekAgent::make(
+        $agent = TravelAgent::make(
             [
-                new ReadSessionDocumentTool($sessionId, $this->documents),
-                new FileRenameTool(),
-                new GenerateFileToolkit(),
-                ...McpConnector::make([
-                    'command' => 'php',
-                    'args' => ['/Users/yong/Projects/galen-ai/filesystem_server.php'],
-                ])->tools(),
-                ...McpConnector::make([
-                    'command' => 'docker',
-                    'args' => [
-                        'run',
-                        '--rm',
-                        '-i',
-                        '-v', '/Users/yong/Projects/galen-ai:/workdir',
-                        'mcp/markitdown:latest',
-                    ],
-                ])->tools(),
+                // new ReadSessionDocumentTool($sessionId, $this->documents),
+                // new FileRenameTool(),
+                // new GenerateFileToolkit(),
+                // ...McpConnector::make([
+                //     'command' => 'php',
+                //     'args' => ['/Users/yong/Projects/galen-ai/filesystem_server.php'],
+                // ])->tools(),
+                // ...McpConnector::make([
+                //     'command' => 'docker',
+                //     'args' => [
+                //         'run',
+                //         '--rm',
+                //         '-i',
+                //         '-v', '/Users/yong/Projects/galen-ai:/workdir',
+                //         'mcp/markitdown:latest',
+                //     ],
+                // ])->tools(),
             ],
             $this->instructions($sessionId),
             // 读取上传文档、重命名文件和生成文件都需要显式审批。
             [
                 ToolNode::class => [
                     new ToolApproval([
-                        'read_uploaded_document',
-                        'rename_file',
-                        'generate_word_file',
-                        'generate_excel_file',
-                        'generate_ppt_file',
-                        'convert_to_markdown',
+                        // 'read_uploaded_document',
+                        // 'rename_file',
+                        // 'generate_word_file',
+                        // 'generate_excel_file',
+                        // 'generate_ppt_file',
+                        // 'convert_to_markdown',
                     ]),
                 ],
             ],
@@ -70,6 +71,10 @@ class SessionAgentFactory
             $this->store->workflowToken($sessionId),
             $state,
         );
+        $agent->addDocuments(
+            FileDataLoader::for(base_path() . '/documents/travel.md')->getDocuments()
+        );
+        return $agent;
     }
 
     /**

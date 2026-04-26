@@ -17,5 +17,9 @@ return [
                 ],
             ],
         ],
+        'embedding' => [
+            'url' => 'http://localhost:11434/api',
+            'model' => 'qwen3-embedding:0.6b',
+        ],
     ],
 ];
