@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace app\neuron\service;
+namespace app\neuron\generator;
 
 use app\neuron\agent\GenerateTitleAgent;
 use app\neuron\store\SessionStore;

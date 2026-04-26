@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace tests\Neuron;
 
-use app\neuron\service\SessionTitleGenerator;
+use app\neuron\generator\SessionTitleGenerator;
 use app\neuron\service\SessionTitleService;
 use app\neuron\store\SessionStore;
 use PHPUnit\Framework\TestCase;

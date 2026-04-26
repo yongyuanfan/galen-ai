@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace app\neuron\service;
 
+use app\neuron\generator\SessionTitleGenerator;
 use app\neuron\store\SessionStore;
 
 class SessionTitleService
