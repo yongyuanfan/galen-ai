@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace tests\Neuron;
+namespace tests\neuron\document;
 
 use app\neuron\document\DocumentManager;
 use app\neuron\store\SessionStore;

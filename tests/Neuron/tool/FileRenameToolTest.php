@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace tests\Neuron;
+namespace tests\neuron\tool;
 
 use app\neuron\store\SessionStore;
 use app\neuron\tool\FileRenameTool;

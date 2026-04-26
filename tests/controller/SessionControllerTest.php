@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace tests\Controller;
+namespace tests\controller;
 
 use app\controller\SessionController;
 use app\neuron\document\DocumentManager;

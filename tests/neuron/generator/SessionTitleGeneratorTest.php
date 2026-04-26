@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace tests\Neuron\generator;
+namespace tests\neuron\generator;
 
 use app\neuron\generator\SessionTitleGenerator;
 use app\neuron\store\SessionStore;

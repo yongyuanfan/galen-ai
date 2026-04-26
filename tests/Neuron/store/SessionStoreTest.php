@@ -2,13 +2,12 @@
 
 declare(strict_types=1);
 
-namespace tests\Neuron;
+namespace tests\neuron\store;
 
 use app\neuron\store\SessionStore;
 use PHPUnit\Framework\TestCase;
 
 use function is_dir;
-use function preg_match;
 
 final class SessionStoreTest extends TestCase
 {

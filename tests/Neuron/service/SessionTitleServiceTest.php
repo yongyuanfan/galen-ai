@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace tests\Neuron;
+namespace tests\neuron\service;
 
 use app\neuron\generator\SessionTitleGenerator;
 use app\neuron\service\SessionTitleService;
