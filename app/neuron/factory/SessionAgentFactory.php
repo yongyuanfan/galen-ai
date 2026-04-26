@@ -82,8 +82,8 @@ class SessionAgentFactory
      */
     private function providerParameters(bool $deepThinking): array
     {
-        $baseParameters = config('neuron.agent.deepseek.chat_parameters', []);
-        $thinkingParameters = config('neuron.agent.deepseek.deep_thinking_parameters', []);
+        $baseParameters = config('neuron.models.deepseek.chat_parameters', []);
+        $thinkingParameters = config('neuron.models.deepseek.deep_thinking_parameters', []);
 
         return $deepThinking ? array_replace_recursive($baseParameters, $thinkingParameters) : $baseParameters;
     }
